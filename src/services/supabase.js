@@ -16,8 +16,16 @@ export const getSupabaseConfig = () => {
     console.error("Error reading supabase config from storage:", e);
   }
 
-  const envUrl = import.meta.env.VITE_SUPABASE_URL || "";
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+  const envUrl =
+    import.meta.env.VITE_SUPABASE_URL ||
+    import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
+    import.meta.env.SUPABASE_URL ||
+    "";
+  const envKey =
+    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    import.meta.env.SUPABASE_ANON_KEY ||
+    "";
 
   if (envUrl && envKey) {
     return { url: envUrl, anonKey: envKey };
