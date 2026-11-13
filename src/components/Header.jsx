@@ -9,7 +9,7 @@ export default function Header({
   onOpenNewOrder,
   onOpenBackup,
   onOpenSupabase,
-  onBackToLanding,
+  onViewPublicSite,
   searchQuery,
   setSearchQuery,
 }) {
@@ -47,11 +47,11 @@ export default function Header({
                   RIDE LAB
                 </h1>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300/60">
-                  Taller MTB
+                  Intranet Taller
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Mecánica Biker Especializada
+                Panel de Control & Mantenciones
               </p>
             </div>
           </div>
@@ -59,11 +59,20 @@ export default function Header({
           {/* Quick Actions */}
           <div className="flex items-center gap-2">
             <button
-              onClick={onBackToLanding}
-              title="Volver a la Landing Page (TC Digital)"
-              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+              onClick={onViewPublicSite}
+              title="Ver Sitio Público y Agendamiento Online de RIDE LAB"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
             >
-              <Globe className="w-4 h-4" />
+              <Globe className="w-3.5 h-3.5 text-amber-600" />
+              <span>Sitio Público</span>
+            </button>
+
+            <button
+              onClick={onViewPublicSite}
+              title="Ver Sitio Público"
+              className="sm:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+            >
+              <Globe className="w-4 h-4 text-amber-600" />
             </button>
 
             <button

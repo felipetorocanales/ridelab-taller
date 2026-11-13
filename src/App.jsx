@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Header from "./components/Header";
 import LandingPage from "./components/LandingPage";
+import WorkshopPublicPage from "./components/WorkshopPublicPage";
 import WorkOrderCard from "./components/WorkOrderCard";
 import WorkOrderModal from "./components/WorkOrderModal";
 import DetailModal from "./components/DetailModal";
@@ -16,8 +17,12 @@ import { Wrench, Calendar, Users, Plus, CheckCircle2, SlidersHorizontal, Sparkle
 export default function App() {
   const [orders, setOrders] = useState([]);
   const [viewMode, setViewMode] = useState(() => {
-    if (window.location.hash === "#app") return "app";
-    return localStorage.getItem("ridelab_view_mode") || "landing";
+    const hash = window.location.hash.toLowerCase();
+    if (hash === "#intranet" || hash === "#app" || hash === "#taller") return "intranet";
+    if (hash === "#saas" || hash === "#tcdigital") return "saas_tc";
+    const saved = localStorage.getItem("ridelab_view_mode");
+    if (saved === "intranet") return "intranet";
+    return "workshop_public"; // Por defecto, sitio web de RIDE LAB
   });
   const [currentTab, setCurrentTab] = useState("taller"); // 'taller' | 'agenda' | 'clientes'
   const [statusFilter, setStatusFilter] = useState("activos"); // 'activos' | 'todos' | 'en_taller' | 'listo' | 'entregado' | 'agendado'
@@ -58,10 +63,13 @@ export default function App() {
     };
 
     const handleHashChange = () => {
-      if (window.location.hash === "#app") {
-        setViewMode("app");
+      const hash = window.location.hash.toLowerCase();
+      if (hash === "#intranet" || hash === "#app" || hash === "#taller") {
+        setViewMode("intranet");
+      } else if (hash === "#saas" || hash === "#tcdigital") {
+        setViewMode("saas_tc");
       } else {
-        setViewMode("landing");
+        setViewMode("workshop_public");
       }
     };
 
@@ -158,22 +166,40 @@ export default function App() {
     return matchName || matchBrand || matchModel || matchCode || matchNotes || matchItems;
   });
 
-  const handleEnterApp = () => {
-    setViewMode("app");
-    localStorage.setItem("ridelab_view_mode", "app");
-    window.location.hash = "#app";
+  const handleOpenIntranet = () => {
+    setViewMode("intranet");
+    localStorage.setItem("ridelab_view_mode", "intranet");
+    window.location.hash = "#intranet";
   };
 
-  const handleBackToLanding = () => {
-    setViewMode("landing");
-    localStorage.setItem("ridelab_view_mode", "landing");
+  const handleOpenPublicWorkshop = () => {
+    setViewMode("workshop_public");
+    localStorage.setItem("ridelab_view_mode", "workshop_public");
     window.location.hash = "";
   };
 
-  if (viewMode === "landing") {
-    return <LandingPage onEnterApp={handleEnterApp} />;
+  const handleBookingSubmitted = (newBookingOrder) => {
+    const saved = addOrder(newBookingOrder);
+    setOrders(getOrders());
+    return saved;
+  };
+
+  // 1. Vista SaaS corporativa TC Digital (si se entra por #saas)
+  if (viewMode === "saas_tc") {
+    return <LandingPage onEnterApp={handleOpenIntranet} />;
   }
 
+  // 2. Vista Pública de RIDE LAB Taller (Página personalizada del taller con agendamiento online)
+  if (viewMode === "workshop_public") {
+    return (
+      <WorkshopPublicPage
+        onOpenIntranet={handleOpenIntranet}
+        onBookingSubmitted={handleBookingSubmitted}
+      />
+    );
+  }
+
+  // 3. Intranet del Taller (Panel del mecánico con bicicletas, agenda y clientes)
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans pb-16 md:pb-6">
       {/* Top Fixed Header with Logo and Brand */}
@@ -187,7 +213,7 @@ export default function App() {
         }}
         onOpenBackup={() => setIsBackupModalOpen(true)}
         onOpenSupabase={() => setIsSupabaseModalOpen(true)}
-        onBackToLanding={handleBackToLanding}
+        onViewPublicSite={handleOpenPublicWorkshop}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />
