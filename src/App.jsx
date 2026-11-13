@@ -18,11 +18,19 @@ import { Wrench, Calendar, Users, Plus, CheckCircle2, SlidersHorizontal, Sparkle
 export default function App() {
   const [orders, setOrders] = useState([]);
   const [viewMode, setViewMode] = useState(() => {
-    const hash = window.location.hash.toLowerCase();
-    if (hash === "#intranet" || hash === "#app" || hash === "#taller") return "intranet";
-    if (hash === "#saas" || hash === "#tcdigital") return "saas_tc";
-    const saved = localStorage.getItem("ridelab_view_mode");
-    if (saved === "intranet") return "intranet";
+    try {
+      const path = (window.location.pathname || "").toLowerCase();
+      const hash = (window.location.hash || "").toLowerCase();
+      if (path.includes("intranet") || path.includes("app") || path.includes("taller") ||
+          hash.includes("intranet") || hash.includes("app") || hash.includes("taller")) {
+        return "intranet";
+      }
+      if (path.includes("saas") || hash.includes("saas") || hash.includes("tcdigital")) {
+        return "saas_tc";
+      }
+      const saved = localStorage.getItem("ridelab_view_mode");
+      if (saved === "intranet") return "intranet";
+    } catch {}
     return "workshop_public"; // Por defecto, sitio web de RIDE LAB
   });
   const [currentTab, setCurrentTab] = useState("taller"); // 'taller' | 'agenda' | 'clientes'
@@ -45,13 +53,12 @@ export default function App() {
     // Check existing auth session
     getAuthSession().then((s) => {
       setSession(s);
-    });
+    }).catch(console.error);
 
     const authSub = subscribeToAuthChanges((event, newSession) => {
       setSession(newSession);
-      if (!newSession && viewMode === "intranet") {
-        setViewMode("workshop_public");
-        window.location.hash = "";
+      if (newSession) {
+        setViewMode("intranet");
       }
     });
 
@@ -59,7 +66,7 @@ export default function App() {
     if (isSupabaseConfigured()) {
       syncWithSupabase().then((remote) => {
         if (remote) setOrders(remote);
-      });
+      }).catch(console.error);
     }
 
     const handleStorageChange = (e) => {
@@ -74,22 +81,27 @@ export default function App() {
       if (isSupabaseConfigured()) {
         syncWithSupabase().then((remote) => {
           if (remote) setOrders(remote);
-        });
+        }).catch(console.error);
       }
     };
 
-    const handleHashChange = () => {
-      const hash = window.location.hash.toLowerCase();
-      if (hash === "#intranet" || hash === "#app" || hash === "#taller") {
-        setViewMode("intranet");
-      } else if (hash === "#saas" || hash === "#tcdigital") {
-        setViewMode("saas_tc");
-      } else {
-        setViewMode("workshop_public");
-      }
+    const handleNavigationChange = () => {
+      try {
+        const path = (window.location.pathname || "").toLowerCase();
+        const hash = (window.location.hash || "").toLowerCase();
+        if (path.includes("intranet") || path.includes("app") || path.includes("taller") ||
+            hash.includes("intranet") || hash.includes("app") || hash.includes("taller")) {
+          setViewMode("intranet");
+        } else if (path.includes("saas") || hash.includes("saas") || hash.includes("tcdigital")) {
+          setViewMode("saas_tc");
+        } else {
+          setViewMode("workshop_public");
+        }
+      } catch {}
     };
 
-    window.addEventListener("hashchange", handleHashChange);
+    window.addEventListener("hashchange", handleNavigationChange);
+    window.addEventListener("popstate", handleNavigationChange);
     window.addEventListener("ridelab_data_changed", handleStorageChange);
     window.addEventListener("ridelab_supabase_config_changed", handleConfigChange);
 
@@ -102,9 +114,13 @@ export default function App() {
     }
 
     return () => {
-      window.removeEventListener("hashchange", handleHashChange);
+      window.removeEventListener("hashchange", handleNavigationChange);
+      window.removeEventListener("popstate", handleNavigationChange);
       window.removeEventListener("ridelab_data_changed", handleStorageChange);
       window.removeEventListener("ridelab_supabase_config_changed", handleConfigChange);
+      if (authSub && typeof authSub.unsubscribe === "function") {
+        authSub.unsubscribe();
+      }
       unsubscribe();
     };
   }, []);
