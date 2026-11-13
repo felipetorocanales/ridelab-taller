@@ -1,21 +1,25 @@
-import React, { useState } from "react";
+import React from "react";
 import {
-  X,
   MessageCircle,
   Printer,
   Edit2,
   Trash2,
   Bike,
-  Calendar,
-  CheckCircle2,
-  Clock,
   Wrench,
-  AlertCircle,
-  ExternalLink,
 } from "lucide-react";
+import Modal from "./ui/Modal";
 import { ORDER_STATUSES } from "../data/serviceCatalog";
 import { formatCLP, formatDateDisplay } from "../services/storage";
 import confetti from "canvas-confetti";
+
+const BIKE_TYPE_LABELS = {
+  mtb: "MTB",
+  ebike: "E-Bike",
+  gravel: "Gravel",
+  ruta: "Ruta / Pista",
+  urbana: "Urbana",
+  otro: "Otra",
+};
 
 export default function DetailModal({
   order,
@@ -25,18 +29,14 @@ export default function DetailModal({
   onDelete,
   onStatusChange,
 }) {
-  if (!isOpen || !order) return null;
+  const statusInfo = order ? ORDER_STATUSES[order.status] || ORDER_STATUSES.en_taller : null;
 
-  const statusInfo = ORDER_STATUSES[order.status] || ORDER_STATUSES.en_taller;
+  if (!order) return null;
 
   const handleStatusClick = (nextStatus) => {
     if (nextStatus === "listo" || nextStatus === "entregado") {
       try {
-        confetti({
-          particleCount: 50,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
+        confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
       } catch {}
     }
     onStatusChange(order.id, nextStatus);
@@ -46,7 +46,7 @@ export default function DetailModal({
     const phone = (order.clientPhone || "").replace(/\D/g, "");
     const totalFormatted = formatCLP(order.total);
     const itemsText = (order.items || [])
-      .map((i) => `  • ${i.description}: ${formatCLP(i.price)}`)
+      .map((item) => `  • ${item.description}: ${formatCLP(item.price)}`)
       .join("\n");
 
     const msg = `¡Hola ${order.clientName}! 🚵‍♂️
@@ -70,240 +70,247 @@ Instagram: @ridelab.taller`;
     window.open(url, "_blank");
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const headerActions = (
+    <div className="no-print flex items-center gap-0.5">
+      <button
+        type="button"
+        onClick={() => onEdit(order)}
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-stone-900"
+        title="Editar orden"
+        aria-label="Editar orden"
+      >
+        <Edit2 className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => window.print()}
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-stone-900"
+        title="Imprimir comprobante"
+        aria-label="Imprimir comprobante"
+      >
+        <Printer className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (confirm(`¿Estás seguro de eliminar la mantención de ${order.clientName}?`)) {
+            onDelete(order.id);
+            onClose();
+          }
+        }}
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-400 transition hover:bg-rose-50 hover:text-rose-600"
+        title="Eliminar orden"
+        aria-label="Eliminar orden"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl w-full max-w-xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
-        {/* Top bar with buttons (hidden on print) */}
-        <div className="no-print px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold px-2 py-1 bg-slate-200 text-slate-800 rounded">
-              {order.code}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">Ficha de Mantención</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => onEdit(order)}
-              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition"
-              title="Editar orden"
-            >
-              <Edit2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handlePrint}
-              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition"
-              title="Imprimir comprobante"
-            >
-              <Printer className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                if (confirm(`¿Estás seguro de eliminar la mantención de ${order.clientName}?`)) {
-                  onDelete(order.id);
-                  onClose();
-                }
-              }}
-              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-              title="Eliminar orden"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-full transition ml-2"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Scrollable Printable Document Card */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-7 print-card">
-          {/* Header of Receipt / Ficha */}
-          <div className="flex items-start justify-between border-b border-slate-200 pb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-xl overflow-hidden border border-amber-200/80 shadow-sm bg-sand-100 flex-shrink-0">
-                <img
-                  src="./logo.jpg"
-                  alt="RIDE LAB"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                  }}
-                />
-              </div>
-              <div>
-                <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-                  RIDE LAB
-                </h1>
-                <p className="text-xs font-bold text-amber-800 tracking-wider uppercase mt-1">
-                  Taller de MTB & Mecánica Biker
-                </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  @ridelab.taller • Servicio Técnico Especializado
-                </p>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <div className="text-xs font-mono font-bold text-slate-500">ORDEN DE TRABAJO</div>
-              <div className="text-lg font-black font-mono text-slate-900">{order.code}</div>
-              <div className="text-xs text-slate-500 mt-1">
-                {formatDateDisplay(order.entryDate)}
-              </div>
-            </div>
-          </div>
-
-          {/* Status Quick Changer (No-print) */}
-          <div className="no-print my-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
-            <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-2">
-              Cambiar Estado del Trabajo:
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              {Object.entries(ORDER_STATUSES).map(([key, cfg]) => {
-                const isCurrent = order.status === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => handleStatusClick(key)}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition text-center flex items-center justify-center gap-1.5 ${
-                      isCurrent
-                        ? `${cfg.bg} ring-2 ring-slate-900/10 font-bold shadow-sm`
-                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}></span>
-                    {cfg.shortLabel}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Client & Bike Information Block */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4 border-b border-slate-200">
-            <div className="bg-sand-50/60 p-3.5 rounded-xl border border-sand-200/60">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Cliente
-              </div>
-              <div className="text-base font-bold text-slate-900">{order.clientName}</div>
-              {order.clientPhone ? (
-                <div className="text-xs text-slate-600 mt-0.5 font-mono">
-                  Tel: {order.clientPhone}
-                </div>
-              ) : (
-                <div className="text-[11px] text-slate-400 italic">Sin teléfono registrado</div>
-              )}
-            </div>
-
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                <Bike className="w-3.5 h-3.5 text-amber-600" />
-                Bicicleta & Talla
-              </div>
-              <div className="text-base font-bold text-slate-900">
-                {order.bikeBrand} {order.bikeModel}
-              </div>
-              <div className="flex items-center gap-2 mt-1 text-xs text-slate-600">
-                <span className="capitalize font-medium">{order.bikeType || "MTB"}</span>
-                {order.bikeSize && (
-                  <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold text-slate-700">
-                    Talla: {order.bikeSize}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Technical Notes / Specs */}
-          {order.notes && (
-            <div className="py-3 border-b border-slate-200">
-              <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                Especificaciones & Notas Técnicas
-              </div>
-              <div className="text-xs text-slate-700 bg-amber-50/60 p-3 rounded-xl border border-amber-200/60 leading-relaxed">
-                {order.notes}
-              </div>
-            </div>
-          )}
-
-          {/* Services & Spare Parts Breakdown */}
-          <div className="py-4">
-            <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
-              Detalle de Mantención & Repuestos
-            </div>
-
-            <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
-              {(order.items || []).map((item, idx) => (
-                <div
-                  key={idx}
-                  className="px-4 py-3 flex items-center justify-between text-xs sm:text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-400 font-mono text-xs">{idx + 1}.</span>
-                    <span className="font-medium text-slate-800">{item.description}</span>
-                  </div>
-                  <span className="font-bold text-slate-900 font-mono">
-                    {formatCLP(item.price)}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Total Row */}
-            <div className="mt-4 p-4 rounded-xl bg-slate-900 text-white flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-xs text-slate-300 block uppercase tracking-wider font-semibold">
-                  Total del Servicio
-                </span>
-                <span className="text-[11px] text-amber-300">
-                  Garantía de servicio RIDELAB Taller
-                </span>
-              </div>
-              <span className="text-2xl font-black font-mono text-amber-400">
-                {formatCLP(order.total)}
-              </span>
-            </div>
-          </div>
-
-          {/* Dates & Signature row */}
-          <div className="pt-2 border-t border-slate-200 flex flex-wrap justify-between text-xs text-slate-500 gap-2">
-            <div>
-              <span className="font-semibold text-slate-700">Ingreso:</span>{" "}
-              {formatDateDisplay(order.entryDate)}
-            </div>
-            {order.deliveryDate && (
-              <div>
-                <span className="font-semibold text-slate-700">Compromiso Entrega:</span>{" "}
-                {formatDateDisplay(order.deliveryDate)}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer Actions (hidden on print) */}
-        <div className="no-print p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Mantención"
+      subtitle={`${order.clientName} · ${formatCLP(order.total)}`}
+      icon={<Wrench className="h-5 w-5" />}
+      headerActions={headerActions}
+      maxWidth="sm:max-w-xl"
+      bodyClassName="print:p-0"
+      footer={
+        <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-sm hover:bg-slate-100 transition"
+            className="h-11 shrink-0 rounded-xl border border-stone-200 px-4 text-sm font-semibold text-stone-600 transition hover:bg-stone-100"
           >
             Cerrar
           </button>
-
           <button
+            type="button"
             onClick={handleWhatsApp}
-            className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow transition active:scale-95 flex items-center justify-center gap-2"
+            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.99]"
           >
-            <MessageCircle className="w-4 h-4" />
+            <MessageCircle className="h-4 w-4" />
             Enviar por WhatsApp
           </button>
         </div>
+      }
+    >
+      <div className="print-card">
+        <div className="flex items-start justify-between gap-3 border-b border-stone-200 pb-4">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-200/80 bg-sand-100 shadow-sm">
+              <img
+                src="./logo.jpg"
+                alt="RIDE LAB"
+                className="h-full w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                  if (event.currentTarget.nextSibling) {
+                    event.currentTarget.nextSibling.style.display = "flex";
+                  }
+                }}
+              />
+              <div className="hidden h-full w-full items-center justify-center bg-stone-900 text-[10px] font-bold text-amber-300">
+                RL
+              </div>
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-base font-black tracking-tight text-stone-900">RIDE LAB</h1>
+              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-amber-800">
+                Taller de MTB
+              </p>
+              <p className="mt-0.5 truncate text-[10px] text-stone-400">@ridelab.taller</p>
+            </div>
+          </div>
+
+          <div className="shrink-0 text-right">
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-stone-400">
+              Orden de trabajo
+            </p>
+            <p className="font-mono text-sm font-black text-stone-900">{order.code}</p>
+            <p className="mt-0.5 text-[10px] text-stone-500">
+              {formatDateDisplay(order.entryDate)}
+            </p>
+          </div>
+        </div>
+
+        <div className="no-print my-4 rounded-xl border border-stone-200 bg-stone-50 p-3">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-500">
+            Estado del trabajo
+          </p>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+            {Object.entries(ORDER_STATUSES).map(([key, config]) => {
+              const isCurrent = order.status === key;
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  onClick={() => handleStatusClick(key)}
+                  className={`flex h-9 items-center justify-center gap-1.5 rounded-lg border px-2 text-[11px] font-semibold transition ${
+                    isCurrent
+                      ? `${config.bg} ring-2 ring-stone-900/10`
+                      : "border-stone-200 bg-white text-stone-600 hover:bg-stone-100"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
+                  {config.shortLabel}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2.5 border-b border-stone-200 py-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-sand-200/60 bg-sand-50/60 p-3">
+            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-stone-400">
+              Cliente
+            </p>
+            <p className="mt-0.5 break-words text-sm font-bold text-stone-900">
+              {order.clientName}
+            </p>
+            {order.clientPhone ? (
+              <p className="mt-0.5 font-mono text-[10px] text-stone-600">
+                Tel: {order.clientPhone}
+              </p>
+            ) : (
+              <p className="mt-0.5 text-[10px] italic text-stone-400">Sin teléfono registrado</p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+            <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.12em] text-stone-400">
+              <Bike className="h-3 w-3 text-amber-700" />
+              Bicicleta
+            </p>
+            <p className="mt-0.5 break-words text-sm font-bold text-stone-900">
+              {order.bikeBrand} {order.bikeModel}
+            </p>
+            <div className="mt-1 flex items-center gap-2 text-[10px] text-stone-600">
+              <span className="font-medium">
+                {BIKE_TYPE_LABELS[order.bikeType] || order.bikeType || "MTB"}
+              </span>
+              {order.bikeSize ? (
+                <span className="rounded border border-stone-200 bg-white px-1.5 py-0.5 font-semibold text-stone-700">
+                  Talla {order.bikeSize}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {order.notes ? (
+          <div className="border-b border-stone-200 py-3">
+            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-stone-400">
+              Notas técnicas
+            </p>
+            <p className="mt-1 rounded-xl border border-amber-200/60 bg-amber-50/60 p-3 text-xs leading-relaxed text-stone-700">
+              {order.notes}
+            </p>
+          </div>
+        ) : null}
+
+        <div className="py-4">
+          <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-stone-500">
+            Detalle de trabajos y repuestos
+          </p>
+
+          <div className="overflow-hidden rounded-xl border border-stone-200 bg-white">
+            {(order.items || []).length === 0 ? (
+              <p className="px-3 py-4 text-center text-[11px] text-stone-400">
+                Sin trabajos detallados.
+              </p>
+            ) : (
+              (order.items || []).map((item, index) => (
+                <div
+                  key={`${item.description}-${index}`}
+                  className="flex items-start justify-between gap-3 border-b border-stone-100 px-3.5 py-2.5 last:border-0"
+                >
+                  <div className="flex min-w-0 items-start gap-2">
+                    <span className="mt-0.5 shrink-0 font-mono text-[10px] text-stone-300">
+                      {index + 1}.
+                    </span>
+                    <span className="break-words text-xs font-medium text-stone-800">
+                      {item.description}
+                    </span>
+                  </div>
+                  <span className="shrink-0 font-mono text-xs font-bold text-stone-900">
+                    {formatCLP(item.price)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-stone-900 p-3.5 text-white shadow-sm">
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-stone-300">
+                Total del servicio
+              </p>
+              <p className="truncate text-[10px] text-amber-300">
+                Garantía de servicio RIDE LAB
+              </p>
+            </div>
+            <span className="shrink-0 font-mono text-xl font-black text-amber-400">
+              {formatCLP(order.total)}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-200 pt-3 text-[10px] text-stone-500">
+          <p>
+            <span className="font-semibold text-stone-700">Ingreso:</span>{" "}
+            {formatDateDisplay(order.entryDate)}
+          </p>
+          {order.deliveryDate ? (
+            <p>
+              <span className="font-semibold text-stone-700">Entrega:</span>{" "}
+              {formatDateDisplay(order.deliveryDate)}
+            </p>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

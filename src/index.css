@@ -6,13 +6,40 @@
   color-scheme: light;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
-  background-color: #F8F9FA;
-  color: #1A1D20;
+  min-height: 100dvh;
+  overflow-x: clip;
+  background-color: #f6f4ef;
+  color: #1c1b18;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #d97706;
+  outline-offset: 2px;
 }
 
 /* Custom modern scrollbars */
@@ -26,18 +53,82 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #d6d3d1;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #a8a29e;
+}
+
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pb-mobile-nav {
+    padding-bottom: calc(6.25rem + env(safe-area-inset-bottom));
+  }
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: modal-fade-in 160ms ease-out both;
+}
+
+.animate-sheet-in {
+  animation: modal-slide-up 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-sheet-in {
+    animation: none;
+  }
+
+  *:not(.animate-spin) {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Evita el autozoom de Safari iOS al enfocar campos en móvil */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* Print specific styles for client receipt / comprobante */
 @media print {
   body {
     background: white !important;
+    overflow: visible !important;
   }
   .no-print {
     display: none !important;
@@ -47,7 +138,7 @@ body {
   }
   .print-card {
     box-shadow: none !important;
-    border: 1px solid #E2E8F0 !important;
+    border: 1px solid #e7e5e4 !important;
     padding: 0 !important;
     margin: 0 !important;
   }

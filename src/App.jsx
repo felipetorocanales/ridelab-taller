@@ -10,13 +10,26 @@ import ClientHistoryView from "./components/ClientHistoryView";
 import BackupModal from "./components/BackupModal";
 import SupabaseModal from "./components/SupabaseModal";
 import LoginModal from "./components/LoginModal";
-import { getOrders, saveOrders, addOrder, updateOrder, deleteOrder, syncWithSupabase } from "./services/storage";
+import { getOrders, addOrder, updateOrder, deleteOrder, syncWithSupabase } from "./services/storage";
 import { isSupabaseConfigured, subscribeToOrdersRealtime, getAuthSession, signOutUser, subscribeToAuthChanges } from "./services/supabase";
-import { ORDER_STATUSES } from "./data/serviceCatalog";
-import { Wrench, Calendar, Users, Plus, CheckCircle2, SlidersHorizontal, Sparkles, Bike } from "lucide-react";
+import { Wrench, Calendar, Users, Plus, Bike, SearchX, ChevronRight } from "lucide-react";
+
+const TAB_ITEMS = [
+  { id: "taller", label: "Taller", icon: Wrench },
+  { id: "agenda", label: "Agenda", icon: Calendar },
+  { id: "clientes", label: "Clientes", icon: Users },
+];
+
+const STATUS_FILTERS = [
+  { id: "activos", label: "Activos" },
+  { id: "en_taller", label: "En taller" },
+  { id: "listo", label: "Listos" },
+  { id: "agendado", label: "Agendados" },
+  { id: "entregado", label: "Entregados" },
+];
 
 export default function App() {
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders] = useState(() => getOrders());
   const [viewMode, setViewMode] = useState(() => {
     try {
       const path = (window.location.pathname || "").toLowerCase();
@@ -31,10 +44,10 @@ export default function App() {
       const saved = localStorage.getItem("ridelab_view_mode");
       if (saved === "intranet") return "intranet";
     } catch {}
-    return "workshop_public"; // Por defecto, sitio web de RIDE LAB
+    return "workshop_public";
   });
-  const [currentTab, setCurrentTab] = useState("taller"); // 'taller' | 'agenda' | 'clientes'
-  const [statusFilter, setStatusFilter] = useState("activos"); // 'activos' | 'todos' | 'en_taller' | 'listo' | 'entregado' | 'agendado'
+  const [currentTab, setCurrentTab] = useState("taller");
+  const [statusFilter, setStatusFilter] = useState("activos");
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -45,12 +58,10 @@ export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [session, setSession] = useState(null);
 
-  // Load orders and auth session on mount
   useEffect(() => {
     const loaded = getOrders();
     setOrders(loaded);
 
-    // Check existing auth session
     getAuthSession().then((s) => {
       setSession(s);
     }).catch(console.error);
@@ -62,7 +73,6 @@ export default function App() {
       }
     });
 
-    // Initial sync with Supabase in background
     if (isSupabaseConfigured()) {
       syncWithSupabase().then((remote) => {
         if (remote) setOrders(remote);
@@ -105,7 +115,6 @@ export default function App() {
     window.addEventListener("ridelab_data_changed", handleStorageChange);
     window.addEventListener("ridelab_supabase_config_changed", handleConfigChange);
 
-    // Realtime subscription if configured
     let unsubscribe = () => {};
     if (isSupabaseConfigured()) {
       unsubscribe = subscribeToOrdersRealtime(() => {
@@ -174,29 +183,44 @@ export default function App() {
     setIsNewModalOpen(true);
   };
 
-  // Filter orders for the 'taller' tab
+  const handleOpenNewOrder = () => {
+    setEditingOrder(null);
+    setIsNewModalOpen(true);
+  };
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentTab]);
+
+  // Búsqueda global: cuando hay texto, se ignoran los filtros de estado.
   const filteredOrders = orders.filter((o) => {
-    // Status filter
-    if (statusFilter === "activos") {
-      if (o.status === "entregado") return false;
-    } else if (statusFilter !== "todos") {
-      if (o.status !== statusFilter) return false;
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      if (statusFilter === "activos") {
+        if (o.status === "entregado") return false;
+      } else if (statusFilter !== "todos" && o.status !== statusFilter) {
+        return false;
+      }
+      return true;
     }
 
-    // Search query
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase().trim();
-    const matchName = (o.clientName || "").toLowerCase().includes(q);
-    const matchBrand = (o.bikeBrand || "").toLowerCase().includes(q);
-    const matchModel = (o.bikeModel || "").toLowerCase().includes(q);
-    const matchCode = (o.code || "").toLowerCase().includes(q);
-    const matchNotes = (o.notes || "").toLowerCase().includes(q);
-    const matchItems = (o.items || []).some((item) =>
-      (item.description || "").toLowerCase().includes(q)
+    return (
+      (o.clientName || "").toLowerCase().includes(query) ||
+      (o.bikeBrand || "").toLowerCase().includes(query) ||
+      (o.bikeModel || "").toLowerCase().includes(query) ||
+      (o.code || "").toLowerCase().includes(query) ||
+      (o.notes || "").toLowerCase().includes(query) ||
+      (o.items || []).some((item) => (item.description || "").toLowerCase().includes(query))
     );
-
-    return matchName || matchBrand || matchModel || matchCode || matchNotes || matchItems;
   });
+
+  const counts = {
+    activos: orders.filter((o) => o.status !== "entregado").length,
+    en_taller: orders.filter((o) => o.status === "en_taller").length,
+    listo: orders.filter((o) => o.status === "listo").length,
+    agendado: orders.filter((o) => o.status === "agendado").length,
+    entregado: orders.filter((o) => o.status === "entregado").length,
+  };
 
   const handleOpenIntranet = () => {
     if (!session) {
@@ -210,6 +234,7 @@ export default function App() {
 
   const handleLoginSuccess = (newSession) => {
     setSession(newSession);
+    setIsLoginModalOpen(false);
     setViewMode("intranet");
     localStorage.setItem("ridelab_view_mode", "intranet");
     window.location.hash = "#intranet";
@@ -235,12 +260,10 @@ export default function App() {
     return saved;
   };
 
-  // 1. Vista SaaS corporativa TC Digital (si se entra por #saas)
   if (viewMode === "saas_tc") {
     return <LandingPage onEnterApp={handleOpenIntranet} />;
   }
 
-  // 2. Si no hay sesión iniciada y se intenta entrar a la intranet, mostramos la página pública con el modal de login
   if (viewMode === "intranet" && !session) {
     return (
       <>
@@ -261,7 +284,6 @@ export default function App() {
     );
   }
 
-  // 3. Vista Pública de RIDE LAB Taller (Página personalizada del taller con agendamiento online)
   if (viewMode === "workshop_public") {
     return (
       <>
@@ -278,18 +300,12 @@ export default function App() {
     );
   }
 
-  // 4. Intranet del Taller (Panel del mecánico autenticado con bicicletas, agenda y clientes)
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans pb-16 md:pb-6">
-      {/* Top Fixed Header with Logo and Brand */}
+    <div className="min-h-[100dvh] bg-[#f6f4ef] text-stone-900">
       <Header
-        orders={orders}
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
-        onOpenNewOrder={() => {
-          setEditingOrder(null);
-          setIsNewModalOpen(true);
-        }}
+        onOpenNewOrder={handleOpenNewOrder}
         onOpenBackup={() => setIsBackupModalOpen(true)}
         onOpenSupabase={() => setIsSupabaseModalOpen(true)}
         onViewPublicSite={handleOpenPublicWorkshop}
@@ -299,106 +315,130 @@ export default function App() {
         setSearchQuery={setSearchQuery}
       />
 
-      {/* Main Content Container */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-4 sm:py-6">
-        {/* TAB 1: TALLER / TRABAJOS */}
+      <main className="pb-mobile-nav mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 sm:pt-6 lg:pb-12">
         {currentTab === "taller" && (
-          <div className="space-y-4">
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-              {[
-                { id: "activos", label: "Activos en Taller" },
-                { id: "todos", label: "Todos los Trabajos" },
-                { id: "en_taller", label: "En Proceso" },
-                { id: "listo", label: "Listos" },
-                { id: "entregado", label: "Histórico Entregados" },
-                { id: "agendado", label: "Agendados" },
-              ].map((pill) => (
-                <button
-                  key={pill.id}
-                  onClick={() => setStatusFilter(pill.id)}
-                  className={`px-3 py-1.5 rounded-full font-semibold whitespace-nowrap transition border ${
-                    statusFilter === pill.id
-                      ? "bg-stone-900 text-white border-stone-900 shadow-sm"
-                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
-                  }`}
+          <section aria-labelledby="trabajos-title">
+            <div className="mb-4 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-800/80">
+                  Panel de taller
+                </p>
+                <h1
+                  id="trabajos-title"
+                  className="mt-0.5 text-xl font-extrabold tracking-tight text-stone-900 sm:text-2xl"
                 >
-                  {pill.label}
-                </button>
-              ))}
+                  Trabajos
+                </h1>
+              </div>
+              <span className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-stone-500">
+                {orders.length === 0
+                  ? "Sin trabajos"
+                  : `${filteredOrders.length} ${filteredOrders.length === 1 ? "trabajo" : "trabajos"}`}
+              </span>
             </div>
 
-            {/* Orders Cards Grid */}
+            {searchQuery ? (
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200/70 bg-amber-50/70 px-3 py-2.5">
+                <p className="min-w-0 truncate text-xs font-medium text-amber-900">
+                  Resultados para “{searchQuery}” en todos los estados
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="shrink-0 text-xs font-bold text-amber-900 underline underline-offset-2 hover:text-amber-950"
+                >
+                  Limpiar
+                </button>
+              </div>
+            ) : orders.length > 0 ? (
+              <div className="relative -mx-4 mb-4 sm:mx-0">
+                <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 pb-1 pr-8 sm:px-0">
+                  {STATUS_FILTERS.map((filter) => {
+                    const isActive = statusFilter === filter.id;
+                    return (
+                      <button
+                        key={filter.id}
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => setStatusFilter(filter.id)}
+                        className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition ${
+                          isActive
+                            ? "border-stone-900 bg-stone-900 text-white shadow-sm"
+                            : "border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:text-stone-900"
+                        }`}
+                      >
+                        {filter.label}
+                        <span
+                          className={`text-[10px] font-bold tabular-nums ${
+                            isActive ? "text-amber-300" : "text-stone-500"
+                          }`}
+                        >
+                          {counts[filter.id]}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-end bg-gradient-to-l from-[#f6f4ef] via-[#f6f4ef]/85 to-transparent sm:hidden">
+                  <ChevronRight className="h-4 w-4 text-stone-400" />
+                </div>
+              </div>
+            ) : null}
+
             {filteredOrders.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
                 {filteredOrders.map((order) => (
                   <WorkOrderCard
                     key={order.id}
                     order={order}
                     onSelect={(ord) => setSelectedOrder(ord)}
-                    onStatusChange={handleStatusChange}
                   />
                 ))}
               </div>
             ) : orders.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-                <div className="w-14 h-14 bg-amber-50 text-amber-800 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-amber-200">
-                  <Bike className="w-7 h-7 text-amber-700" />
-                </div>
-                <h3 className="font-extrabold text-slate-900 text-lg">
-                  ¡Tu Taller RIDE LAB está listo para operar!
-                </h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
-                  Aún no hay bicicletas ingresadas. Registra tu primera mantención o espera a que tus clientes agenden en línea desde tu sitio web.
-                </p>
-                <div className="mt-5 flex items-center justify-center gap-2">
+              <EmptyPanel
+                icon={<Bike className="h-7 w-7" />}
+                title="Aún no hay trabajos registrados"
+                description="Ingresa la primera mantención desde el botón Nueva, en la barra inferior. También puedes recibir reservas desde tu sitio público."
+              />
+            ) : searchQuery ? (
+              <EmptyPanel
+                icon={<SearchX className="h-6 w-6" />}
+                title="Sin resultados"
+                description={`No encontramos coincidencias para “${searchQuery}”. Prueba con el nombre del cliente, la marca o un repuesto.`}
+                action={
                   <button
-                    onClick={() => {
-                      setEditingOrder(null);
-                      setIsNewModalOpen(true);
-                    }}
-                    className="px-4 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 active:scale-95"
-                  >
-                    <Plus className="w-4 h-4 text-amber-400" />
-                    Ingresar Primera Mantención
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-                <div className="w-12 h-12 bg-sand-100 text-amber-900 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Wrench className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-slate-800 text-base">
-                  {searchQuery ? "No se encontraron coincidencias" : "No hay mantenciones en este estado"}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  {searchQuery
-                    ? `Intenta con otro término o revisa el filtro aplicado.`
-                    : `Puedes registrar una nueva mantención con el botón "+ Nueva Mantención".`}
-                </p>
-                {searchQuery && (
-                  <button
+                    type="button"
                     onClick={() => setSearchQuery("")}
-                    className="mt-3 px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 rounded-lg hover:bg-amber-100"
+                    className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-100"
                   >
                     Limpiar búsqueda
                   </button>
-                )}
-              </div>
+                }
+              />
+            ) : (
+              <EmptyPanel
+                icon={<Wrench className="h-6 w-6" />}
+                title="No hay trabajos en este estado"
+                description="Cambia el filtro para ver otros trabajos del taller."
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter("activos")}
+                    className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-100"
+                  >
+                    Ver activos
+                  </button>
+                }
+              />
             )}
-          </div>
+          </section>
         )}
 
-        {/* TAB 2: AGENDA Y CALENDARIO */}
         {currentTab === "agenda" && (
-          <AgendaView
-            orders={orders}
-            onSelectOrder={(ord) => setSelectedOrder(ord)}
-          />
+          <AgendaView orders={orders} onSelectOrder={(ord) => setSelectedOrder(ord)} />
         )}
 
-        {/* TAB 3: CLIENTES E HISTORIAL DETALLADO */}
         {currentTab === "clientes" && (
           <ClientHistoryView
             orders={orders}
@@ -410,60 +450,54 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Action Button for mobile quick new order */}
-      <button
-        onClick={() => {
-          setEditingOrder(null);
-          setIsNewModalOpen(true);
-        }}
-        className="md:hidden fixed right-4 bottom-20 z-40 bg-stone-900 text-amber-400 p-3.5 rounded-full shadow-xl hover:scale-105 active:scale-95 transition border-2 border-white"
-        title="Nueva Mantención"
+      <nav
+        aria-label="Navegación de la aplicación"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200/80 bg-white shadow-[0_-4px_16px_-12px_rgba(28,27,24,0.25)] lg:hidden"
       >
-        <Plus className="w-6 h-6" />
-      </button>
+        <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-0.5 px-2 pb-[env(safe-area-inset-bottom)]">
+          {TAB_ITEMS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = currentTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setCurrentTab(tab.id)}
+                aria-current={isActive ? "page" : undefined}
+                className="flex min-h-[58px] flex-col items-center justify-center gap-0.5 py-1.5"
+              >
+                <span
+                  className={`flex h-8 w-11 items-center justify-center rounded-full transition ${
+                    isActive ? "bg-amber-100 text-stone-900" : "text-stone-500"
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={isActive ? 2.3 : 1.9} />
+                </span>
+                <span
+                  className={`text-[10px] leading-none ${
+                    isActive ? "font-bold text-stone-900" : "font-medium text-stone-500"
+                  }`}
+                >
+                  {tab.label}
+                </span>
+              </button>
+            );
+          })}
 
-      {/* Bottom Navigation Bar (iOS App Style) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 py-1.5 px-4 shadow-lg md:max-w-md md:left-1/2 md:-translate-x-1/2 md:bottom-3 md:rounded-2xl md:border">
-        <div className="flex items-center justify-around">
           <button
-            onClick={() => setCurrentTab("taller")}
-            className={`flex flex-col items-center gap-0.5 py-1 px-4 rounded-xl transition ${
-              currentTab === "taller"
-                ? "text-stone-900 font-bold"
-                : "text-slate-400 hover:text-slate-600 font-medium"
-            }`}
+            type="button"
+            onClick={handleOpenNewOrder}
+            aria-label="Nueva mantención"
+            className="flex min-h-[58px] flex-col items-center justify-center gap-0.5 py-1.5"
           >
-            <Wrench className="w-5 h-5" />
-            <span className="text-[10px]">Taller</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentTab("agenda")}
-            className={`flex flex-col items-center gap-0.5 py-1 px-4 rounded-xl transition ${
-              currentTab === "agenda"
-                ? "text-stone-900 font-bold"
-                : "text-slate-400 hover:text-slate-600 font-medium"
-            }`}
-          >
-            <Calendar className="w-5 h-5" />
-            <span className="text-[10px]">Agenda</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentTab("clientes")}
-            className={`flex flex-col items-center gap-0.5 py-1 px-4 rounded-xl transition ${
-              currentTab === "clientes"
-                ? "text-stone-900 font-bold"
-                : "text-slate-400 hover:text-slate-600 font-medium"
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            <span className="text-[10px]">Clientes</span>
+            <span className="flex h-8 w-11 items-center justify-center rounded-full bg-stone-900 text-amber-300 shadow-sm transition active:scale-95">
+              <Plus className="h-[18px] w-[18px]" strokeWidth={2.4} />
+            </span>
+            <span className="text-[10px] font-bold leading-none text-stone-900">Nueva</span>
           </button>
         </div>
       </nav>
 
-      {/* Modals */}
       <WorkOrderModal
         isOpen={isNewModalOpen}
         onClose={() => {
@@ -504,6 +538,19 @@ export default function App() {
           });
         }}
       />
+    </div>
+  );
+}
+
+function EmptyPanel({ icon, title, description, action }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-stone-200/90 bg-white px-6 py-10 text-center shadow-[0_1px_2px_rgba(28,27,24,0.03)] sm:py-12">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200/70 bg-amber-50 text-amber-800">
+        {icon}
+      </div>
+      <h2 className="text-[15px] font-bold text-stone-900">{title}</h2>
+      <p className="mt-1 max-w-xs text-xs leading-relaxed text-stone-500">{description}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }

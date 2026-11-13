@@ -174,7 +174,7 @@ export const uploadBatchToSupabase = async (ordersList) => {
   const client = getSupabaseClient();
   if (!client) throw new Error("Supabase no configurado");
   const payload = ordersList.map(mapOrderToSupabase);
-  const { data, error } = await client.from("orders").upsert(payload, { onConflict: "id" });
+  const { error } = await client.from("orders").upsert(payload, { onConflict: "id" });
   if (error) throw error;
   return true;
 };

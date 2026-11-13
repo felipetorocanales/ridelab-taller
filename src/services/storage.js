@@ -160,12 +160,30 @@ export const formatCLP = (amount) => {
   return "$" + num.toLocaleString("es-CL");
 };
 
+// Fecha local en formato YYYY-MM-DD (evita el desfase UTC de toISOString en Chile)
+export const getLocalDateISO = (date = new Date()) => {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+export const formatDateShort = (dateStr) => {
+  if (!dateStr) return "Sin fecha";
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d
+    .toLocaleDateString("es-CL", { day: "numeric", month: "short" })
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ");
+};
+
 export const formatDateDisplay = (dateStr) => {
   if (!dateStr) return "Sin fecha";
   try {
     const parts = dateStr.split("-");
     if (parts.length === 3) {
-      const year = parts[0];
       const month = parseInt(parts[1], 10) - 1;
       const day = parseInt(parts[2], 10);
       const months = [

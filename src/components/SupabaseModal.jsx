@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from "react";
 import {
-  X,
   Cloud,
   CheckCircle2,
   AlertCircle,
-  Copy,
   ExternalLink,
   RefreshCw,
   UploadCloud,
   Unlink,
-  Database,
+  ChevronDown,
 } from "lucide-react";
+import Modal from "./ui/Modal";
 import {
   getSupabaseConfig,
   saveSupabaseConfig,
@@ -22,24 +21,24 @@ import {
 import { getOrders } from "../services/storage";
 
 export default function SupabaseModal({ isOpen, onClose, onSyncSuccess }) {
-  if (!isOpen) return null;
-
   const currentConfig = getSupabaseConfig();
   const [url, setUrl] = useState(currentConfig.url || "");
   const [anonKey, setAnonKey] = useState(currentConfig.anonKey || "");
   const [isConnected, setIsConnected] = useState(isSupabaseConfigured());
   const [statusMessage, setStatusMessage] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
 
   useEffect(() => {
-    setIsConnected(isSupabaseConfigured());
+    if (isOpen) {
+      setIsConnected(isSupabaseConfigured());
+      setStatusMessage(null);
+    }
   }, [isOpen]);
 
-  const handleSaveAndTest = async (e) => {
-    e.preventDefault();
+  const handleSaveAndTest = async (event) => {
+    event.preventDefault();
     if (!url.trim() || !anonKey.trim()) {
-      setStatusMessage({ type: "error", text: "Por favor ingresa tanto la URL como la Anon Key." });
+      setStatusMessage({ type: "error", text: "Ingresa la URL y la Anon Key." });
       return;
     }
 
@@ -48,19 +47,18 @@ export default function SupabaseModal({ isOpen, onClose, onSyncSuccess }) {
 
     try {
       saveSupabaseConfig(url.trim(), anonKey.trim());
-      // Test fetch
       const testData = await fetchOrdersFromSupabase();
       setIsConnected(true);
       setStatusMessage({
         type: "success",
-        text: `¡Conexión exitosa! Se encontraron ${testData.length} órdenes en Supabase.`,
+        text: `Conexión exitosa. Se encontraron ${testData.length} órdenes en Supabase.`,
       });
       if (onSyncSuccess) onSyncSuccess();
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
       setStatusMessage({
         type: "error",
-        text: `Error de conexión: ${err.message || "Verifica la URL, la Anon Key o si ejecutaste el SQL de la tabla orders en Supabase."}`,
+        text: `Error de conexión: ${error.message || "Revisa la URL, la Anon Key y la tabla orders."}`,
       });
     } finally {
       setLoading(false);
@@ -75,7 +73,7 @@ export default function SupabaseModal({ isOpen, onClose, onSyncSuccess }) {
       setIsConnected(false);
       setStatusMessage({
         type: "info",
-        text: "Supabase desconectado. El sistema ahora opera en almacenamiento local.",
+        text: "Supabase desconectado. El sistema opera en almacenamiento local.",
       });
       if (onSyncSuccess) onSyncSuccess();
     }
@@ -89,211 +87,171 @@ export default function SupabaseModal({ isOpen, onClose, onSyncSuccess }) {
       await uploadBatchToSupabase(localOrders);
       setStatusMessage({
         type: "success",
-        text: `¡Se subieron exitosamente ${localOrders.length} mantenciones locales a Supabase!`,
+        text: `Se subieron ${localOrders.length} mantenciones locales a Supabase.`,
       });
       if (onSyncSuccess) onSyncSuccess();
-    } catch (err) {
-      setStatusMessage({
-        type: "error",
-        text: `Error al subir: ${err.message}`,
-      });
+    } catch (error) {
+      setStatusMessage({ type: "error", text: `Error al subir: ${error.message}` });
     } finally {
       setLoading(false);
     }
   };
 
-  const copySqlNotice = () => {
-    setCopiedSql(true);
-    navigator.clipboard?.writeText?.(`-- Encontrarás el script completo en el archivo 'supabase/schema.sql' del proyecto.`);
-    setTimeout(() => setCopiedSql(false), 2500);
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[94vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
-        {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-emerald-100 rounded-lg text-emerald-900">
-              <Cloud className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="font-bold text-slate-900 text-base leading-tight">
-                Sincronización en la Nube (Supabase)
-              </h2>
-              <p className="text-xs text-slate-500">
-                PostgreSQL multi-dispositivo y agendamiento en línea
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-full transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* Status Badge Banner */}
-          <div
-            className={`p-4 rounded-xl border flex items-start gap-3 ${
-              isConnected
-                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                : "bg-amber-50 border-amber-200 text-amber-900"
-            }`}
-          >
-            {isConnected ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            )}
-            <div className="flex-1 text-xs">
-              <div className="font-bold text-sm">
-                {isConnected
-                  ? "🟢 Supabase Conectado (Nube Activa)"
-                  : "🟡 Modo Local Activo"}
-              </div>
-              <p className="mt-0.5 opacity-90 leading-relaxed">
-                {isConnected
-                  ? "Tus mantenciones se sincronizan en tiempo real con Supabase. Puedes abrir la app en tu celular y computador simultáneamente."
-                  : "Actualmente los datos se guardan en la memoria local del navegador. Conecta Supabase gratis para tener sincronización automática."}
-              </p>
-            </div>
-          </div>
-
-          {/* Feedback message */}
-          {statusMessage && (
-            <div
-              className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
-                statusMessage.type === "success"
-                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                  : statusMessage.type === "info"
-                  ? "bg-blue-50 text-blue-800 border border-blue-200"
-                  : "bg-rose-50 text-rose-800 border border-rose-200"
-              }`}
-            >
-              {statusMessage.type === "success" ? (
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-              ) : (
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              )}
-              {statusMessage.text}
-            </div>
-          )}
-
-          {/* Configuration Form */}
-          <form onSubmit={handleSaveAndTest} className="space-y-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Project URL de Supabase *
-              </label>
-              <input
-                type="url"
-                required
-                placeholder="https://abcdefghijklm.supabase.co"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-emerald-500 font-mono text-xs"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Anon / Public API Key *
-              </label>
-              <input
-                type="password"
-                required
-                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                value={anonKey}
-                onChange={(e) => setAnonKey(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-emerald-500 font-mono text-xs"
-              />
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow transition"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                {isConnected ? "Actualizar & Probar Conexión" : "Conectar con Supabase"}
-              </button>
-
-              {isConnected && (
-                <button
-                  type="button"
-                  onClick={handleDisconnect}
-                  className="px-3 py-2.5 border border-rose-200 hover:bg-rose-50 text-rose-700 font-semibold rounded-xl text-xs flex items-center gap-1 transition"
-                  title="Desconectar Supabase"
-                >
-                  <Unlink className="w-3.5 h-3.5" />
-                  Desconectar
-                </button>
-              )}
-            </div>
-          </form>
-
-          {/* Quick upload local data to Supabase */}
-          {isConnected && (
-            <div className="pt-2 border-t border-slate-200">
-              <button
-                type="button"
-                onClick={handleUploadCurrentData}
-                disabled={loading}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
-              >
-                <UploadCloud className="w-4 h-4 text-emerald-400" />
-                Subir mis datos locales actuales a Supabase ({getOrders().length} órdenes)
-              </button>
-            </div>
-          )}
-
-          {/* 3 Step Guide */}
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
-            <div className="font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
-              <span>¿Cómo configurar Supabase gratis? (3 pasos)</span>
-              <a
-                href="https://supabase.com"
-                target="_blank"
-                rel="noreferrer"
-                className="text-emerald-700 hover:underline flex items-center gap-1 font-semibold normal-case"
-              >
-                supabase.com <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-
-            <ol className="text-slate-600 space-y-1.5 pl-4 list-decimal leading-relaxed">
-              <li>
-                Crea un proyecto gratuito en <strong>Supabase.com</strong> (ej: "RideLab").
-              </li>
-              <li>
-                Ve al menú <strong>SQL Editor</strong>, abre el archivo{" "}
-                <code className="bg-slate-200 text-slate-800 px-1 py-0.5 rounded font-mono text-[11px]">
-                  supabase/schema.sql
-                </code>{" "}
-                de este proyecto, pégalo y haz clic en <strong>Run</strong>. (Crea la tabla y carga las 13 notas reales).
-              </li>
-              <li>
-                En Supabase ve a <strong>Project Settings -&gt; API</strong>, copia la <strong>Project URL</strong> y la <strong>anon public key</strong>, y pégalas arriba.
-              </li>
-            </ol>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 text-right">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-700 transition"
-          >
-            Cerrar
-          </button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Nube y sincronización"
+      subtitle="PostgreSQL multi-dispositivo"
+      icon={<Cloud className="h-5 w-5" />}
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-11 w-full rounded-xl bg-stone-900 text-sm font-bold text-white transition hover:bg-stone-800"
+        >
+          Cerrar
+        </button>
+      }
+    >
+      <div
+        className={`flex items-start gap-2.5 rounded-xl border p-3 ${
+          isConnected
+            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+            : "border-amber-200 bg-amber-50 text-amber-900"
+        }`}
+      >
+        {isConnected ? (
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+        ) : (
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+        )}
+        <div className="min-w-0">
+          <p className="text-xs font-bold">
+            {isConnected ? "Supabase conectado" : "Modo local activo"}
+          </p>
+          <p className="mt-0.5 text-[11px] leading-relaxed opacity-90">
+            {isConnected
+              ? "Tus mantenciones se sincronizan en tiempo real entre dispositivos."
+              : "Los datos se guardan en este navegador. Conecta Supabase para sincronizar entre equipos."}
+          </p>
         </div>
       </div>
-    </div>
+
+      {statusMessage ? (
+        <div
+          className={`mt-3 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-[11px] font-medium ${
+            statusMessage.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : statusMessage.type === "info"
+              ? "border-blue-200 bg-blue-50 text-blue-800"
+              : "border-rose-200 bg-rose-50 text-rose-800"
+          }`}
+        >
+          {statusMessage.type === "success" ? (
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          )}
+          <span>{statusMessage.text}</span>
+        </div>
+      ) : null}
+
+      <form onSubmit={handleSaveAndTest} className="mt-4 space-y-3">
+        <div>
+          <label htmlFor="supabase-url" className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.1em] text-stone-500">
+            Project URL
+          </label>
+          <input
+            id="supabase-url"
+            type="url"
+            required
+            placeholder="https://abcdefghijklm.supabase.co"
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 font-mono text-xs text-stone-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="supabase-key" className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.1em] text-stone-500">
+            Anon / Public Key
+          </label>
+          <input
+            id="supabase-key"
+            type="password"
+            required
+            placeholder="eyJhbGciOiJIUzI1NiIs..."
+            value={anonKey}
+            onChange={(event) => setAnonKey(event.target.value)}
+            className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 font-mono text-xs text-stone-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            {isConnected ? "Probar conexión" : "Conectar Supabase"}
+          </button>
+
+          {isConnected ? (
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              className="flex h-11 items-center gap-1.5 rounded-xl border border-rose-200 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+            >
+              <Unlink className="h-3.5 w-3.5" />
+              Desconectar
+            </button>
+          ) : null}
+        </div>
+      </form>
+
+      {isConnected ? (
+        <button
+          type="button"
+          onClick={handleUploadCurrentData}
+          disabled={loading}
+          className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-stone-200 bg-stone-900 text-[11px] font-bold text-white transition hover:bg-stone-800 disabled:opacity-50"
+        >
+          <UploadCloud className="h-4 w-4 text-emerald-400" />
+          Subir datos locales ({getOrders().length})
+        </button>
+      ) : null}
+
+      <details className="group mt-4 rounded-xl border border-stone-200 bg-stone-50/70">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 text-xs font-bold text-stone-800 [&::-webkit-details-marker]:hidden">
+          Cómo configurar Supabase
+          <ChevronDown className="h-4 w-4 text-stone-400 transition group-open:rotate-180" />
+        </summary>
+        <div className="space-y-2 border-t border-stone-200 px-3.5 py-3 text-[11px] leading-relaxed text-stone-600">
+          <p>
+            1. Crea un proyecto gratuito en{" "}
+            <a
+              href="https://supabase.com"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-0.5 font-semibold text-emerald-700 underline underline-offset-2"
+            >
+              supabase.com <ExternalLink className="h-2.5 w-2.5" />
+            </a>
+          </p>
+          <p>
+            2. En <strong>SQL Editor</strong>, ejecuta el archivo{" "}
+            <code className="rounded bg-stone-200 px-1 py-0.5 font-mono text-[10px] text-stone-800">
+              supabase/schema.sql
+            </code>
+            .
+          </p>
+          <p>
+            3. En <strong>Project Settings → API</strong>, copia la URL y la anon key y pégalas arriba.
+          </p>
+        </div>
+      </details>
+    </Modal>
   );
 }

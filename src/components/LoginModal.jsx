@@ -1,20 +1,36 @@
-import React, { useState } from "react";
-import { Lock, Mail, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, ShieldCheck } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Lock, Mail, Eye, EyeOff, ArrowRight, AlertCircle, ShieldCheck, X } from "lucide-react";
 import { signInWithEmail } from "../services/supabase";
 
 export default function LoginModal({ isOpen, onClose, onSuccess }) {
-  if (!isOpen) return null;
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (!email.trim() || !password.trim()) {
-      setError("Por favor ingresa tu correo y contraseña.");
+      setError("Ingresa tu correo y contraseña.");
       return;
     }
 
@@ -22,14 +38,9 @@ export default function LoginModal({ isOpen, onClose, onSuccess }) {
     setError(null);
 
     try {
-      const res = await signInWithEmail(email.trim(), password.trim());
-      if (res.error) {
-        throw res.error;
-      }
-      if (onSuccess) {
-        onSuccess(res.data.session);
-      }
-      onClose();
+      const result = await signInWithEmail(email.trim(), password.trim());
+      if (result.error) throw result.error;
+      if (onSuccess) onSuccess(result.data.session);
     } catch (err) {
       console.error(err);
       setError(
@@ -43,68 +54,78 @@ export default function LoginModal({ isOpen, onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
-        {/* Header */}
-        <div className="p-6 text-center bg-sand-50/60 border-b border-slate-200/80">
-          <div className="w-16 h-16 rounded-2xl overflow-hidden border border-amber-200 shadow-md bg-sand-100 mx-auto mb-3">
-            <img src="./logo.jpg" alt="RIDE LAB" className="w-full h-full object-cover" />
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/55 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-sm animate-fade-in sm:items-center sm:p-4">
+      <div className="animate-sheet-in relative max-h-[calc(100dvh-0.5rem-env(safe-area-inset-top))] w-full overflow-y-auto rounded-t-[28px] border border-stone-200 bg-white shadow-2xl sm:max-h-[92vh] sm:max-w-md sm:rounded-3xl">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Volver al sitio público"
+          className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <div className="border-b border-stone-100 bg-sand-50/60 px-6 pb-5 pt-8 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-amber-200 bg-sand-100 shadow-sm">
+            <img src="./logo.jpg" alt="RIDE LAB" className="h-full w-full object-cover" />
           </div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">
-            Intranet RIDE LAB
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5 font-medium">
-            Acceso seguro exclusivo para el equipo del taller
+          <h2 className="text-xl font-black tracking-tight text-stone-900">Intranet RIDE LAB</h2>
+          <p className="mt-0.5 text-[11px] font-medium text-stone-500">
+            Acceso exclusivo para el equipo del taller
           </p>
         </div>
 
-        {/* Form Body */}
-        <div className="p-6">
-          {error && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+        <div className="px-5 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
+          {error ? (
+            <div className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-medium text-rose-800">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
-          )}
+          ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Correo Electrónico
+              <label htmlFor="login-email" className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.1em] text-stone-500">
+                Correo electrónico
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                 <input
+                  id="login-email"
                   type="email"
                   required
+                  autoComplete="email"
                   placeholder="taller@ridelab.cl"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 focus:border-amber-500 text-xs font-medium"
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="h-11 w-full rounded-xl border border-stone-200 bg-white pl-10 pr-3 text-sm font-medium text-stone-900 placeholder:text-stone-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              <label htmlFor="login-password" className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.1em] text-stone-500">
                 Contraseña
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                 <input
+                  id="login-password"
                   type={showPassword ? "text" : "password"}
                   required
-                  placeholder="••••••••••••"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-slate-300 focus:border-amber-500 text-xs font-medium"
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="h-11 w-full rounded-xl border border-stone-200 bg-white pl-10 pr-11 text-sm font-medium text-stone-900 placeholder:text-stone-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-stone-400 transition hover:bg-stone-100 hover:text-stone-600"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
@@ -112,31 +133,31 @@ export default function LoginModal({ isOpen, onClose, onSuccess }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-center gap-2 active:scale-95 mt-2"
+              className="mt-1 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-stone-900 text-sm font-bold text-white shadow-md transition hover:bg-stone-800 active:scale-[0.99] disabled:opacity-50"
             >
               {loading ? (
-                <span>Verificando credenciales...</span>
+                <span>Verificando...</span>
               ) : (
                 <>
-                  <Lock className="w-4 h-4 text-amber-400" />
-                  <span>Ingresar a la Intranet</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <Lock className="h-4 w-4 text-amber-300" />
+                  <span>Ingresar</span>
+                  <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+          <div className="mt-5 flex flex-col gap-2 border-t border-stone-100 pt-4 text-[11px] text-stone-500 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
               onClick={onClose}
-              className="hover:text-slate-800 underline font-medium"
+              className="text-left font-medium underline underline-offset-2 hover:text-stone-800"
             >
-              ← Volver al sitio público
+              Volver al sitio público
             </button>
-
-            <span className="flex items-center gap-1 text-[11px] text-slate-400">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Conexión SSL Segura
+            <span className="flex items-center gap-1 text-[10px] text-stone-400">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+              Conexión segura
             </span>
           </div>
         </div>

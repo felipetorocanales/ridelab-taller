@@ -1,21 +1,13 @@
 import React, { useState } from "react";
 import {
-  Bike,
   Wrench,
   Calendar,
-  Clock,
   CheckCircle2,
-  Phone,
   Lock,
-  ArrowRight,
-  ShieldCheck,
-  Sparkles,
-  MapPin,
-  ChevronRight,
   Send,
 } from "lucide-react";
-import { QUICK_SERVICES, BIKE_TYPES } from "../data/serviceCatalog";
-import { formatCLP } from "../services/storage";
+import { QUICK_SERVICES } from "../data/serviceCatalog";
+import { getLocalDateISO } from "../services/storage";
 import confetti from "canvas-confetti";
 
 const InstagramIcon = ({ className = "w-4 h-4" }) => (
@@ -27,7 +19,7 @@ const InstagramIcon = ({ className = "w-4 h-4" }) => (
 );
 
 export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted }) {
-  const [booking, setBooking] = useState({
+  const [booking, setBooking] = useState(() => ({
     clientName: "",
     clientPhone: "",
     bikeBrand: "",
@@ -35,8 +27,8 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted 
     bikeType: "mtb",
     serviceDescription: "Mantención completa MTB ($55.000)",
     notes: "",
-    date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-  });
+    date: getLocalDateISO(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+  }));
 
   const [submitted, setSubmitted] = useState(false);
   const [bookingCode, setBookingCode] = useState("");
@@ -72,9 +64,11 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted 
       total: estimatedPrice,
       status: "agendado",
       entryDate: booking.date,
-      deliveryDate: new Date(new Date(booking.date).getTime() + 2 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0],
+      deliveryDate: (() => {
+        const delivery = new Date(`${booking.date}T00:00:00`);
+        delivery.setDate(delivery.getDate() + 2);
+        return getLocalDateISO(delivery);
+      })(),
     };
 
     if (onBookingSubmitted) {
@@ -105,43 +99,47 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased flex flex-col">
       {/* Top Header */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl overflow-hidden border border-amber-200 shadow-sm bg-sand-100 flex-shrink-0">
-              <img src="./logo.jpg" alt="RIDE LAB" className="w-full h-full object-cover" />
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-2.5 sm:gap-3 sm:py-3">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+            <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-xl border border-amber-200 bg-sand-100 shadow-sm sm:h-11 sm:w-11">
+              <img src="./logo.jpg" alt="RIDE LAB" className="h-full w-full object-cover" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-lg text-slate-900 tracking-tight leading-none">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="whitespace-nowrap text-base font-black leading-none tracking-tight text-slate-900 sm:text-lg">
                   RIDE LAB
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                <span className="hidden rounded border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900 sm:inline">
                   Taller de MTB
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-medium">Mecánica Biker Especializada</p>
+              <p className="mt-0.5 hidden truncate text-[11px] font-medium text-slate-500 sm:block">
+                Mecánica Biker Especializada
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
             <a
               href="https://www.instagram.com/ridelab.taller"
               target="_blank"
               rel="noreferrer"
-              className="p-2 text-slate-600 hover:text-amber-800 hover:bg-slate-100 rounded-lg transition"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-amber-800 sm:h-10 sm:w-10"
               title="Instagram @ridelab.taller"
+              aria-label="Instagram @ridelab.taller"
             >
-              <InstagramIcon className="w-4 h-4" />
+              <InstagramIcon className="h-4 w-4" />
             </a>
 
             <button
               onClick={onOpenIntranet}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-sm"
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-[11px] font-bold text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 sm:h-10 sm:px-3 sm:text-xs"
               title="Acceso exclusivo para el mecánico del taller"
             >
-              <Lock className="w-3.5 h-3.5 text-amber-600" />
-              <span>Intranet Taller</span>
+              <Lock className="h-3.5 w-3.5 text-amber-600" />
+              <span className="sm:hidden">Intranet</span>
+              <span className="hidden sm:inline">Intranet Taller</span>
             </button>
           </div>
         </div>
@@ -301,7 +299,7 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted 
                         bikeType: "mtb",
                         serviceDescription: "Mantención completa MTB ($55.000)",
                         notes: "",
-                        date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+                        date: getLocalDateISO(new Date(Date.now() + 24 * 60 * 60 * 1000)),
                       });
                     }}
                     className="text-xs text-slate-500 hover:text-slate-800 underline font-medium pt-2"

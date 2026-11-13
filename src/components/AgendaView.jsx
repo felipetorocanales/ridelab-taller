@@ -1,13 +1,12 @@
 import React from "react";
 import { Calendar, Clock, AlertTriangle, CheckCircle2, ChevronRight, Bike } from "lucide-react";
-import { formatCLP, formatDateDisplay } from "../services/storage";
+import { formatCLP, formatDateShort, getLocalDateISO } from "../services/storage";
 import { ORDER_STATUSES } from "../data/serviceCatalog";
 
 export default function AgendaView({ orders, onSelectOrder }) {
-  const activeOrders = orders.filter((o) => o.status !== "entregado");
-  const today = new Date().toISOString().split("T")[0];
+  const activeOrders = orders.filter((order) => order.status !== "entregado");
+  const todayISO = getLocalDateISO();
 
-  // Group active orders by deliveryDate or entryDate
   const groups = {
     hoy: [],
     manana: [],
@@ -25,169 +24,207 @@ export default function AgendaView({ orders, onSelectOrder }) {
   const inOneWeek = new Date(todayDate);
   inOneWeek.setDate(inOneWeek.getDate() + 7);
 
-  activeOrders.forEach((o) => {
-    const targetDateStr = o.deliveryDate || o.entryDate;
+  activeOrders.forEach((order) => {
+    const targetDateStr = order.deliveryDate || order.entryDate;
     if (!targetDateStr) {
-      groups.sinFecha.push(o);
+      groups.sinFecha.push(order);
       return;
     }
-    const d = new Date(targetDateStr + "T00:00:00");
-    if (isNaN(d.getTime())) {
-      groups.sinFecha.push(o);
+    const targetDate = new Date(`${targetDateStr}T00:00:00`);
+    if (Number.isNaN(targetDate.getTime())) {
+      groups.sinFecha.push(order);
       return;
     }
 
-    if (d < todayDate) {
-      // Overdue or past due
-      groups.hoy.push(o);
-    } else if (d.toDateString() === todayDate.toDateString()) {
-      groups.hoy.push(o);
-    } else if (d.toDateString() === tomorrowDate.toDateString()) {
-      groups.manana.push(o);
-    } else if (d <= inOneWeek) {
-      groups.estaSemana.push(o);
+    if (targetDate < todayDate || targetDate.toDateString() === todayDate.toDateString()) {
+      groups.hoy.push(order);
+    } else if (targetDate.toDateString() === tomorrowDate.toDateString()) {
+      groups.manana.push(order);
+    } else if (targetDate <= inOneWeek) {
+      groups.estaSemana.push(order);
     } else {
-      groups.proximos.push(o);
+      groups.proximos.push(order);
     }
   });
 
+  const sortByDate = (list) =>
+    [...list].sort((a, b) =>
+      String(a.deliveryDate || a.entryDate || "").localeCompare(String(b.deliveryDate || b.entryDate || ""))
+    );
+
+  Object.keys(groups).forEach((key) => {
+    groups[key] = sortByDate(groups[key]);
+  });
+
+  const overdueCount = groups.hoy.filter(
+    (order) => order.deliveryDate && order.deliveryDate < todayISO
+  ).length;
+
+  const todayLabel = new Date().toLocaleDateString("es-CL", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const todayLabelCapitalized = todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1);
+
   const renderOrderRow = (order) => {
     const statusCfg = ORDER_STATUSES[order.status] || ORDER_STATUSES.en_taller;
+    const dueDate = order.deliveryDate || order.entryDate;
+    const isOverdue = Boolean(order.deliveryDate) && order.deliveryDate < todayISO;
+
     return (
-      <div
+      <button
         key={order.id}
+        type="button"
         onClick={() => onSelectOrder(order)}
-        className="p-3.5 bg-white rounded-xl border border-slate-200/90 hover:border-amber-300 shadow-sm hover:shadow transition cursor-pointer flex items-center justify-between gap-3 group"
+        className="group flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-stone-50 active:bg-stone-100"
       >
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-900 text-sm group-hover:text-amber-800 transition truncate">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${statusCfg.dot}`} />
+            <span className="truncate text-[13px] font-bold text-stone-900 group-hover:text-amber-900">
               {order.clientName}
             </span>
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusCfg.bg}`}>
-              {statusCfg.shortLabel}
-            </span>
+            {isOverdue ? (
+              <span className="shrink-0 rounded bg-rose-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-rose-700">
+                Atrasado
+              </span>
+            ) : null}
           </div>
-
-          <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-0.5">
-            <Bike className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-            <span className="truncate font-medium">
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 pl-4 text-[11px] text-stone-500">
+            <Bike className="h-3 w-3 shrink-0 text-amber-700/70" />
+            <span className="truncate">
               {order.bikeBrand} {order.bikeModel}
             </span>
-            {order.bikeSize && (
-              <span className="text-[11px] text-slate-400">({order.bikeSize})</span>
-            )}
+            <span className="shrink-0 text-stone-300">·</span>
+            <span className="shrink-0">{formatDateShort(dueDate)}</span>
           </div>
         </div>
 
-        <div className="text-right flex items-center gap-2">
-          <div>
-            <span className="text-[10px] text-slate-400 block">Total</span>
-            <span className="text-xs font-bold text-slate-900 font-mono">
-              {formatCLP(order.total)}
-            </span>
-          </div>
-          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-amber-600 transition" />
-        </div>
-      </div>
+        <span className="shrink-0 font-mono text-xs font-bold text-stone-800">
+          {formatCLP(order.total)}
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-stone-300 transition group-hover:text-amber-700" />
+      </button>
     );
   };
 
-  const renderSection = (title, items, icon, badgeColor, tip) => {
+  const renderSection = (title, items, icon, toneClasses, description) => {
     if (!items || items.length === 0) return null;
     const isOverload = items.length >= 4;
 
     return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`p-1.5 rounded-lg ${badgeColor}`}>{icon}</div>
-            <h3 className="font-bold text-slate-800 text-sm">{title}</h3>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-bold font-mono">
-              {items.length} {items.length === 1 ? "bici" : "bicis"}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${toneClasses}`}>
+              {icon}
+            </div>
+            <h2 className="truncate text-[13px] font-bold text-stone-800">{title}</h2>
+            <span className="shrink-0 rounded-full bg-stone-200/70 px-2 py-0.5 text-[10px] font-bold tabular-nums text-stone-600">
+              {items.length}
             </span>
           </div>
 
-          {isOverload && (
-            <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1">
-              <AlertTriangle className="w-3 h-3" /> Alta carga de trabajo
+          {isOverload ? (
+            <span className="flex shrink-0 items-center gap-1 rounded-md bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800">
+              <AlertTriangle className="h-3 w-3" />
+              Carga alta
             </span>
-          )}
+          ) : null}
         </div>
 
-        {tip && <p className="text-xs text-slate-500 italic pl-1">{tip}</p>}
+        {description ? (
+          <p className="px-1 text-[11px] text-stone-500">{description}</p>
+        ) : null}
 
-        <div className="space-y-2">{items.map(renderOrderRow)}</div>
-      </div>
+        <div className="overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-[0_1px_2px_rgba(28,27,24,0.03)]">
+          <div className="divide-y divide-stone-100">{items.map(renderOrderRow)}</div>
+        </div>
+      </section>
     );
   };
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Intro banner */}
-      <div className="bg-gradient-to-r from-sand-100 to-amber-50 p-4 rounded-2xl border border-sand-200">
-        <div className="flex items-start gap-3">
-          <div className="p-2.5 bg-white text-amber-800 rounded-xl shadow-sm border border-amber-200/80">
-            <Calendar className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="font-bold text-slate-900 text-sm sm:text-base">
-              Agenda & Flujo de Taller RIDELAB
-            </h2>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Organiza los compromisos de entrega para no colapsar tus tiempos. Mantén un máximo recomendado de 2 a 3 entregas por jornada.
-            </p>
-          </div>
+    <section aria-labelledby="agenda-title">
+      <div className="mb-5 flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-800/80">
+            Flujo de entregas
+          </p>
+          <h1
+            id="agenda-title"
+            className="mt-0.5 text-xl font-extrabold tracking-tight text-stone-900 sm:text-2xl"
+          >
+            Agenda
+          </h1>
+          <p className="mt-1 text-xs text-stone-500">
+            {todayLabelCapitalized} · {groups.hoy.length}{" "}
+            {groups.hoy.length === 1 ? "entrega para hoy" : "entregas para hoy"}
+          </p>
         </div>
       </div>
 
+      {overdueCount > 0 ? (
+        <div className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p className="leading-relaxed">
+            {overdueCount === 1
+              ? "Hay 1 entrega atrasada. Revisa la sección de hoy y avisa al cliente."
+              : `Hay ${overdueCount} entregas atrasadas. Revisa la sección de hoy y avisa a los clientes.`}
+          </p>
+        </div>
+      ) : null}
+
       {activeOrders.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-6">
-          <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
-          <h3 className="font-bold text-slate-800 text-base">¡Taller al día!</h3>
-          <p className="text-xs text-slate-500 mt-1">
-            No hay mantenciones pendientes de entrega en este momento.
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-stone-200/90 bg-white px-6 py-12 text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <h2 className="text-[15px] font-bold text-stone-900">Sin entregas pendientes</h2>
+          <p className="mt-1 max-w-xs text-xs leading-relaxed text-stone-500">
+            El taller está al día. Cuando registres una mantención, aparecerá organizada aquí.
           </p>
         </div>
       ) : (
         <div className="space-y-6">
           {renderSection(
-            "Entregas para Hoy o Pendientes",
+            overdueCount > 0 ? "Hoy y atrasadas" : "Hoy",
             groups.hoy,
-            <Clock className="w-4 h-4 text-rose-600" />,
-            "bg-rose-50 text-rose-700",
-            "Prioridad máxima: avisar al cliente o terminar hoy."
+            <Clock className="h-3.5 w-3.5 text-rose-600" />,
+            "bg-rose-50 text-rose-700"
           )}
 
           {renderSection(
-            "Entregas de Mañana",
+            "Mañana",
             groups.manana,
-            <Calendar className="w-4 h-4 text-amber-600" />,
-            "bg-amber-50 text-amber-700"
+            <Calendar className="h-3.5 w-3.5 text-amber-700" />,
+            "bg-amber-50 text-amber-800"
           )}
 
           {renderSection(
-            "Esta Semana",
+            "Esta semana",
             groups.estaSemana,
-            <Calendar className="w-4 h-4 text-blue-600" />,
+            <Calendar className="h-3.5 w-3.5 text-blue-700" />,
             "bg-blue-50 text-blue-700"
           )}
 
           {renderSection(
-            "Próximos Días & En Espera",
+            "Próximas",
             groups.proximos,
-            <Calendar className="w-4 h-4 text-slate-600" />,
-            "bg-slate-100 text-slate-700"
+            <Calendar className="h-3.5 w-3.5 text-stone-600" />,
+            "bg-stone-100 text-stone-700"
           )}
 
           {renderSection(
-            "Sin Fecha Asignada",
+            "Sin fecha asignada",
             groups.sinFecha,
-            <AlertTriangle className="w-4 h-4 text-slate-500" />,
-            "bg-slate-100 text-slate-600"
+            <AlertTriangle className="h-3.5 w-3.5 text-stone-500" />,
+            "bg-stone-100 text-stone-600",
+            "Asigna una fecha de entrega para ordenar la carga del taller."
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }
