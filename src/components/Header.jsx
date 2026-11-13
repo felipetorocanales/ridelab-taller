@@ -1,5 +1,5 @@
 import React from "react";
-import { Wrench, Plus, Database, Calendar, Search, Bike, CheckCircle2, Cloud, Globe } from "lucide-react";
+import { Wrench, Plus, Database, Calendar, Search, Bike, CheckCircle2, Cloud, Globe, LogOut } from "lucide-react";
 import { isSupabaseConfigured } from "../services/supabase";
 
 export default function Header({
@@ -10,6 +10,8 @@ export default function Header({
   onOpenBackup,
   onOpenSupabase,
   onViewPublicSite,
+  onLogout,
+  userEmail,
   searchQuery,
   setSearchQuery,
 }) {
@@ -99,6 +101,16 @@ export default function Header({
             >
               <Database className="w-4 h-4" />
             </button>
+
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                title={`Cerrar Sesión (${userEmail || "Mecánico"})`}
+                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-slate-200"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
 
             <button
               onClick={onOpenNewOrder}

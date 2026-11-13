@@ -199,3 +199,34 @@ export const subscribeToOrdersRealtime = (onChangeCallback) => {
     client.removeChannel(channel);
   };
 };
+
+// -------------------------------------------------------------
+// Autenticación de Supabase (Para la Intranet del Taller)
+// -------------------------------------------------------------
+export const signInWithEmail = async (email, password) => {
+  const client = getSupabaseClient();
+  if (!client) throw new Error("Supabase no inicializado");
+  return await client.auth.signInWithPassword({ email, password });
+};
+
+export const signOutUser = async () => {
+  const client = getSupabaseClient();
+  if (!client) return;
+  return await client.auth.signOut();
+};
+
+export const getAuthSession = async () => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+  const { data } = await client.auth.getSession();
+  return data?.session || null;
+};
+
+export const subscribeToAuthChanges = (callback) => {
+  const client = getSupabaseClient();
+  if (!client) return { unsubscribe: () => {} };
+  const { data } = client.auth.onAuthStateChange((event, session) => {
+    callback(event, session);
+  });
+  return data.subscription;
+};

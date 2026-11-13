@@ -9,8 +9,9 @@ import AgendaView from "./components/AgendaView";
 import ClientHistoryView from "./components/ClientHistoryView";
 import BackupModal from "./components/BackupModal";
 import SupabaseModal from "./components/SupabaseModal";
+import LoginModal from "./components/LoginModal";
 import { getOrders, saveOrders, addOrder, updateOrder, deleteOrder, syncWithSupabase } from "./services/storage";
-import { isSupabaseConfigured, subscribeToOrdersRealtime } from "./services/supabase";
+import { isSupabaseConfigured, subscribeToOrdersRealtime, getAuthSession, signOutUser, subscribeToAuthChanges } from "./services/supabase";
 import { ORDER_STATUSES } from "./data/serviceCatalog";
 import { Wrench, Calendar, Users, Plus, CheckCircle2, SlidersHorizontal, Sparkles } from "lucide-react";
 
@@ -33,11 +34,26 @@ export default function App() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [session, setSession] = useState(null);
 
-  // Load orders on mount and sync with Supabase if active
+  // Load orders and auth session on mount
   useEffect(() => {
     const loaded = getOrders();
     setOrders(loaded);
+
+    // Check existing auth session
+    getAuthSession().then((s) => {
+      setSession(s);
+    });
+
+    const authSub = subscribeToAuthChanges((event, newSession) => {
+      setSession(newSession);
+      if (!newSession && viewMode === "intranet") {
+        setViewMode("workshop_public");
+        window.location.hash = "";
+      }
+    });
 
     // Initial sync with Supabase in background
     if (isSupabaseConfigured()) {
@@ -167,14 +183,33 @@ export default function App() {
   });
 
   const handleOpenIntranet = () => {
+    if (!session) {
+      setIsLoginModalOpen(true);
+      return;
+    }
     setViewMode("intranet");
     localStorage.setItem("ridelab_view_mode", "intranet");
     window.location.hash = "#intranet";
   };
 
+  const handleLoginSuccess = (newSession) => {
+    setSession(newSession);
+    setViewMode("intranet");
+    localStorage.setItem("ridelab_view_mode", "intranet");
+    window.location.hash = "#intranet";
+  };
+
+  const handleLogout = async () => {
+    await signOutUser();
+    setSession(null);
+    setViewMode("workshop_public");
+    localStorage.removeItem("ridelab_view_mode");
+    window.location.hash = "";
+  };
+
   const handleOpenPublicWorkshop = () => {
     setViewMode("workshop_public");
-    localStorage.setItem("ridelab_view_mode", "workshop_public");
+    localStorage.removeItem("ridelab_view_mode");
     window.location.hash = "";
   };
 
@@ -189,17 +224,45 @@ export default function App() {
     return <LandingPage onEnterApp={handleOpenIntranet} />;
   }
 
-  // 2. Vista Pública de RIDE LAB Taller (Página personalizada del taller con agendamiento online)
-  if (viewMode === "workshop_public") {
+  // 2. Si no hay sesión iniciada y se intenta entrar a la intranet, mostramos la página pública con el modal de login
+  if (viewMode === "intranet" && !session) {
     return (
-      <WorkshopPublicPage
-        onOpenIntranet={handleOpenIntranet}
-        onBookingSubmitted={handleBookingSubmitted}
-      />
+      <>
+        <WorkshopPublicPage
+          onOpenIntranet={handleOpenIntranet}
+          onBookingSubmitted={handleBookingSubmitted}
+        />
+        <LoginModal
+          isOpen={true}
+          onClose={() => {
+            setIsLoginModalOpen(false);
+            setViewMode("workshop_public");
+            window.location.hash = "";
+          }}
+          onSuccess={handleLoginSuccess}
+        />
+      </>
     );
   }
 
-  // 3. Intranet del Taller (Panel del mecánico con bicicletas, agenda y clientes)
+  // 3. Vista Pública de RIDE LAB Taller (Página personalizada del taller con agendamiento online)
+  if (viewMode === "workshop_public") {
+    return (
+      <>
+        <WorkshopPublicPage
+          onOpenIntranet={handleOpenIntranet}
+          onBookingSubmitted={handleBookingSubmitted}
+        />
+        <LoginModal
+          isOpen={isLoginModalOpen}
+          onClose={() => setIsLoginModalOpen(false)}
+          onSuccess={handleLoginSuccess}
+        />
+      </>
+    );
+  }
+
+  // 4. Intranet del Taller (Panel del mecánico autenticado con bicicletas, agenda y clientes)
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans pb-16 md:pb-6">
       {/* Top Fixed Header with Logo and Brand */}
@@ -214,6 +277,8 @@ export default function App() {
         onOpenBackup={() => setIsBackupModalOpen(true)}
         onOpenSupabase={() => setIsSupabaseModalOpen(true)}
         onViewPublicSite={handleOpenPublicWorkshop}
+        onLogout={handleLogout}
+        userEmail={session?.user?.email}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />
