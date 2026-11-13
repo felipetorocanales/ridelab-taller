@@ -61,7 +61,7 @@ export default function WorkOrderModal({ isOpen, onClose, onSave, editingOrder, 
         status: "en_taller",
         entryDate: todayStr,
         deliveryDate: defaultDelivery,
-        items: [{ id: "i1", description: "Mantención completa MTB", price: 55000 }],
+        items: [],
       });
     }
   }, [editingOrder, isOpen]);

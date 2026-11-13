@@ -5,7 +5,7 @@ import { signInWithEmail } from "../services/supabase";
 export default function LoginModal({ isOpen, onClose, onSuccess }) {
   if (!isOpen) return null;
 
-  const [email, setEmail] = useState("taller@ridelab.cl");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);

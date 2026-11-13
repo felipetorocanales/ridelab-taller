@@ -324,6 +324,30 @@ export default function App() {
                   />
                 ))}
               </div>
+            ) : orders.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+                <div className="w-14 h-14 bg-amber-50 text-amber-800 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-amber-200">
+                  <Bike className="w-7 h-7 text-amber-700" />
+                </div>
+                <h3 className="font-extrabold text-slate-900 text-lg">
+                  ¡Tu Taller RIDE LAB está listo para operar!
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
+                  Aún no hay bicicletas ingresadas. Registra tu primera mantención o espera a que tus clientes agenden en línea desde tu sitio web.
+                </p>
+                <div className="mt-5 flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingOrder(null);
+                      setIsNewModalOpen(true);
+                    }}
+                    className="px-4 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 active:scale-95"
+                  >
+                    <Plus className="w-4 h-4 text-amber-400" />
+                    Ingresar Primera Mantención
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
                 <div className="w-12 h-12 bg-sand-100 text-amber-900 rounded-full flex items-center justify-center mx-auto mb-3">
