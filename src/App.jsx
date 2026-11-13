@@ -8,7 +8,6 @@ import DetailModal from "./components/DetailModal";
 import AgendaView from "./components/AgendaView";
 import ClientHistoryView from "./components/ClientHistoryView";
 import BackupModal from "./components/BackupModal";
-import SupabaseModal from "./components/SupabaseModal";
 import LoginModal from "./components/LoginModal";
 import { getOrders, addOrder, updateOrder, deleteOrder, syncWithSupabase } from "./services/storage";
 import { isSupabaseConfigured, subscribeToOrdersRealtime, getAuthSession, signOutUser, subscribeToAuthChanges } from "./services/supabase";
@@ -54,7 +53,6 @@ export default function App() {
   const [editingOrder, setEditingOrder] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
-  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [session, setSession] = useState(null);
 
@@ -307,7 +305,6 @@ export default function App() {
         setCurrentTab={setCurrentTab}
         onOpenNewOrder={handleOpenNewOrder}
         onOpenBackup={() => setIsBackupModalOpen(true)}
-        onOpenSupabase={() => setIsSupabaseModalOpen(true)}
         onViewPublicSite={handleOpenPublicWorkshop}
         onLogout={handleLogout}
         userEmail={session?.user?.email}
@@ -527,16 +524,6 @@ export default function App() {
         onClose={() => setIsBackupModalOpen(false)}
         onDataRestored={() => setOrders(getOrders())}
         totalOrders={orders.length}
-      />
-
-      <SupabaseModal
-        isOpen={isSupabaseModalOpen}
-        onClose={() => setIsSupabaseModalOpen(false)}
-        onSyncSuccess={() => {
-          syncWithSupabase().then((remote) => {
-            if (remote) setOrders(remote);
-          });
-        }}
       />
     </div>
   );

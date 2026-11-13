@@ -6,7 +6,6 @@ import {
   Calendar,
   Search,
   Users,
-  Cloud,
   Globe,
   LogOut,
   MoreHorizontal,
@@ -24,7 +23,6 @@ export default function Header({
   setCurrentTab,
   onOpenNewOrder,
   onOpenBackup,
-  onOpenSupabase,
   onViewPublicSite,
   onLogout,
   userEmail,
@@ -202,30 +200,6 @@ export default function Header({
                   >
                     <Globe className="h-4 w-4 text-amber-700" />
                     Ver sitio público
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => runMenuAction(onOpenSupabase)}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-stone-700 transition hover:bg-stone-100"
-                  >
-                    <Cloud className="h-4 w-4 text-emerald-700" />
-                    <span className="flex-1">Nube y sincronización</span>
-                    <span
-                      className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
-                        isCloudActive
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-amber-50 text-amber-700"
-                      }`}
-                    >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          isCloudActive ? "bg-emerald-500" : "bg-amber-500"
-                        }`}
-                      />
-                      {isCloudActive ? "Conectado" : "Local"}
-                    </span>
                   </button>
 
                   <button
