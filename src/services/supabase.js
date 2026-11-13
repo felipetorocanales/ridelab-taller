@@ -2,7 +2,11 @@ import { createClient } from "@supabase/supabase-js";
 
 const CONFIG_STORAGE_KEY = "ridelab_supabase_config_v1";
 
-// 1. Obtener credenciales desde localStorage o desde variables de entorno .env
+const DEFAULT_SUPABASE_URL = "https://hvbjvnrmtlhlcosootsw.supabase.co";
+const DEFAULT_SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2Ymp2bnJtdGxobGNvc29vdHN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ1NzE3NTYsImV4cCI6MjExMDE0Nzc1Nn0.gaxPUYjFVfGSwK0llxAhOnjU0KGgZe0XNNwpLv03Vac";
+
+// 1. Obtener credenciales desde localStorage, variables .env o defaults del proyecto
 export const getSupabaseConfig = () => {
   try {
     const saved = localStorage.getItem(CONFIG_STORAGE_KEY);
@@ -20,18 +24,19 @@ export const getSupabaseConfig = () => {
     import.meta.env.VITE_SUPABASE_URL ||
     import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
     import.meta.env.SUPABASE_URL ||
-    "";
+    DEFAULT_SUPABASE_URL;
+
   const envKey =
     import.meta.env.VITE_SUPABASE_ANON_KEY ||
     import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     import.meta.env.SUPABASE_ANON_KEY ||
-    "";
+    DEFAULT_SUPABASE_ANON_KEY;
 
   if (envUrl && envKey) {
     return { url: envUrl, anonKey: envKey };
   }
 
-  return { url: "", anonKey: "" };
+  return { url: DEFAULT_SUPABASE_URL, anonKey: DEFAULT_SUPABASE_ANON_KEY };
 };
 
 export const saveSupabaseConfig = (url, anonKey) => {
