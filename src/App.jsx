@@ -13,7 +13,7 @@ import LoginModal from "./components/LoginModal";
 import { getOrders, saveOrders, addOrder, updateOrder, deleteOrder, syncWithSupabase } from "./services/storage";
 import { isSupabaseConfigured, subscribeToOrdersRealtime, getAuthSession, signOutUser, subscribeToAuthChanges } from "./services/supabase";
 import { ORDER_STATUSES } from "./data/serviceCatalog";
-import { Wrench, Calendar, Users, Plus, CheckCircle2, SlidersHorizontal, Sparkles } from "lucide-react";
+import { Wrench, Calendar, Users, Plus, CheckCircle2, SlidersHorizontal, Sparkles, Bike } from "lucide-react";
 
 export default function App() {
   const [orders, setOrders] = useState([]);
