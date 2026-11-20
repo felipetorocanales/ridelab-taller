@@ -1,13 +1,19 @@
 import { INITIAL_ORDERS } from "../data/initialData";
+import { INITIAL_SERVICES } from "../data/serviceCatalog";
 import {
   isSupabaseConfigured,
   fetchOrdersFromSupabase,
   insertOrderToSupabase,
   updateOrderInSupabase,
   deleteOrderFromSupabase,
+  fetchServicesFromSupabase,
+  insertServiceToSupabase,
+  updateServiceInSupabase,
+  deleteServiceFromSupabase,
 } from "./supabase";
 
 const STORAGE_KEY = "ridelab_orders_v1";
+const SERVICES_STORAGE_KEY = "ridelab_services_v1";
 
 export const getOrders = () => {
   try {
@@ -195,5 +201,114 @@ export const formatDateDisplay = (dateStr) => {
     return dateStr;
   } catch {
     return dateStr;
+  }
+};
+
+// -------------------------------------------------------------
+// Catálogo de Servicios (localStorage + Supabase)
+// -------------------------------------------------------------
+export const getServices = () => {
+  try {
+    const raw = localStorage.getItem(SERVICES_STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(SERVICES_STORAGE_KEY, JSON.stringify(INITIAL_SERVICES));
+      return INITIAL_SERVICES;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SERVICES;
+  } catch (err) {
+    console.error("Error reading services from localStorage:", err);
+    return INITIAL_SERVICES;
+  }
+};
+
+export const saveServices = (services) => {
+  try {
+    localStorage.setItem(SERVICES_STORAGE_KEY, JSON.stringify(services));
+    window.dispatchEvent(new CustomEvent("ridelab_services_changed", { detail: services }));
+  } catch (err) {
+    console.error("Error saving services to localStorage:", err);
+  }
+};
+
+export const addService = async (newService) => {
+  const current = getServices();
+  const nextNumber = current.length + 1;
+  const padded = String(nextNumber).padStart(3, "0");
+  const serviceToSave = {
+    ...newService,
+    id: newService.id || `srv-${Date.now()}`,
+    code: (newService.code || `SRV-${padded}`).trim().toUpperCase(),
+    price: Number(newService.price) || 0,
+    sortOrder: Number(newService.sortOrder) || nextNumber,
+    createdAt: newService.createdAt || new Date().toISOString(),
+  };
+
+  const updated = [...current, serviceToSave];
+  saveServices(updated);
+
+  if (isSupabaseConfigured()) {
+    try {
+      await insertServiceToSupabase(serviceToSave);
+    } catch (e) {
+      console.warn("No se pudo guardar el servicio en Supabase:", e);
+    }
+  }
+
+  return serviceToSave;
+};
+
+export const updateService = async (updatedService) => {
+  const current = getServices();
+  const cleanService = {
+    ...updatedService,
+    code: (updatedService.code || "").trim().toUpperCase(),
+    price: Number(updatedService.price) || 0,
+  };
+  const updated = current.map((item) =>
+    item.id === cleanService.id ? { ...item, ...cleanService } : item
+  );
+
+  saveServices(updated);
+
+  if (isSupabaseConfigured()) {
+    try {
+      await updateServiceInSupabase(cleanService);
+    } catch (e) {
+      console.warn("No se pudo actualizar el servicio en Supabase:", e);
+    }
+  }
+
+  return cleanService;
+};
+
+export const deleteService = async (serviceId) => {
+  const current = getServices();
+  const updated = current.filter((item) => item.id !== serviceId);
+  saveServices(updated);
+
+  if (isSupabaseConfigured()) {
+    try {
+      await deleteServiceFromSupabase(serviceId);
+    } catch (e) {
+      console.warn("No se pudo eliminar el servicio en Supabase:", e);
+    }
+  }
+
+  return updated;
+};
+
+export const syncServicesWithSupabase = async () => {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    const remoteServices = await fetchServicesFromSupabase();
+    if (Array.isArray(remoteServices) && remoteServices.length > 0) {
+      saveServices(remoteServices);
+      return remoteServices;
+    }
+    return getServices();
+  } catch (e) {
+    console.warn("No se pudo sincronizar servicios con Supabase (usando catálogo local):", e?.message || e);
+    return null;
   }
 };

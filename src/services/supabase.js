@@ -201,6 +201,114 @@ export const subscribeToOrdersRealtime = (onChangeCallback) => {
 };
 
 // -------------------------------------------------------------
+// Catálogo de Servicios en Supabase
+// -------------------------------------------------------------
+export const mapSupabaseToService = (row) => ({
+  id: row.id,
+  code: row.code || "",
+  name: row.name || "",
+  description: row.description || "",
+  price: Number(row.price) || 0,
+  priceLabel: row.price_label || "",
+  category: row.category || "mantencion",
+  showInLanding: Boolean(row.show_in_landing),
+  showInBooking: row.show_in_booking !== false,
+  showInQuickAdd: row.show_in_quick_add !== false,
+  active: row.active !== false,
+  sortOrder: Number(row.sort_order) || 0,
+  createdAt: row.created_at || new Date().toISOString(),
+});
+
+export const mapServiceToSupabase = (service) => ({
+  id: service.id,
+  code: service.code || "",
+  name: service.name || "",
+  description: service.description || "",
+  price: Number(service.price) || 0,
+  price_label: service.priceLabel || "",
+  category: service.category || "mantencion",
+  show_in_landing: Boolean(service.showInLanding),
+  show_in_booking: service.showInBooking !== false,
+  show_in_quick_add: service.showInQuickAdd !== false,
+  active: service.active !== false,
+  sort_order: Number(service.sortOrder) || 0,
+  updated_at: new Date().toISOString(),
+});
+
+export const fetchServicesFromSupabase = async () => {
+  const client = getSupabaseClient();
+  if (!client) throw new Error("Supabase no está configurado");
+
+  const { data, error } = await client
+    .from("services")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("code", { ascending: true });
+
+  if (error) throw error;
+  return (data || []).map(mapSupabaseToService);
+};
+
+export const insertServiceToSupabase = async (service) => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+  const payload = mapServiceToSupabase(service);
+  const { data, error } = await client.from("services").insert([payload]).select();
+  if (error) {
+    console.error("Error inserting service to Supabase:", error);
+    throw error;
+  }
+  return data?.[0] ? mapSupabaseToService(data[0]) : service;
+};
+
+export const updateServiceInSupabase = async (service) => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+  const payload = mapServiceToSupabase(service);
+  const { data, error } = await client
+    .from("services")
+    .update(payload)
+    .eq("id", service.id)
+    .select();
+  if (error) {
+    console.error("Error updating service in Supabase:", error);
+    throw error;
+  }
+  return data?.[0] ? mapSupabaseToService(data[0]) : service;
+};
+
+export const deleteServiceFromSupabase = async (serviceId) => {
+  const client = getSupabaseClient();
+  if (!client) return false;
+  const { error } = await client.from("services").delete().eq("id", serviceId);
+  if (error) {
+    console.error("Error deleting service from Supabase:", error);
+    throw error;
+  }
+  return true;
+};
+
+export const subscribeToServicesRealtime = (onChangeCallback) => {
+  const client = getSupabaseClient();
+  if (!client) return () => {};
+
+  const channel = client
+    .channel("public:services")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "services" },
+      (payload) => {
+        onChangeCallback(payload);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    client.removeChannel(channel);
+  };
+};
+
+// -------------------------------------------------------------
 // Autenticación de Supabase (Para la Intranet del Taller)
 // -------------------------------------------------------------
 export const signInWithEmail = async (email, password) => {

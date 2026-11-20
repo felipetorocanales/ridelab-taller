@@ -9,6 +9,7 @@ import {
   Globe,
   LogOut,
   MoreHorizontal,
+  Tag,
 } from "lucide-react";
 import { isSupabaseConfigured } from "../services/supabase";
 
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { id: "taller", label: "Taller", icon: Wrench },
   { id: "agenda", label: "Agenda", icon: Calendar },
   { id: "clientes", label: "Clientes", icon: Users },
+  { id: "servicios", label: "Servicios", icon: Tag },
 ];
 
 export default function Header({
@@ -32,7 +34,7 @@ export default function Header({
   const isCloudActive = isSupabaseConfigured();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
-  const showSearch = currentTab !== "agenda";
+  const showSearch = currentTab !== "agenda" && currentTab !== "servicios";
 
   useEffect(() => {
     if (!menuOpen) return;

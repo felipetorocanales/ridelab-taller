@@ -9,14 +9,34 @@ import AgendaView from "./components/AgendaView";
 import ClientHistoryView from "./components/ClientHistoryView";
 import BackupModal from "./components/BackupModal";
 import LoginModal from "./components/LoginModal";
-import { getOrders, addOrder, updateOrder, deleteOrder, syncWithSupabase } from "./services/storage";
-import { isSupabaseConfigured, subscribeToOrdersRealtime, getAuthSession, signOutUser, subscribeToAuthChanges } from "./services/supabase";
-import { Wrench, Calendar, Users, Plus, Bike, SearchX, ChevronRight } from "lucide-react";
+import ServicesManagerView from "./components/ServicesManagerView";
+import {
+  getOrders,
+  addOrder,
+  updateOrder,
+  deleteOrder,
+  syncWithSupabase,
+  getServices,
+  addService,
+  updateService,
+  deleteService,
+  syncServicesWithSupabase,
+} from "./services/storage";
+import {
+  isSupabaseConfigured,
+  subscribeToOrdersRealtime,
+  subscribeToServicesRealtime,
+  getAuthSession,
+  signOutUser,
+  subscribeToAuthChanges,
+} from "./services/supabase";
+import { Wrench, Calendar, Users, Plus, Bike, SearchX, ChevronRight, Tag } from "lucide-react";
 
 const TAB_ITEMS = [
   { id: "taller", label: "Taller", icon: Wrench },
   { id: "agenda", label: "Agenda", icon: Calendar },
   { id: "clientes", label: "Clientes", icon: Users },
+  { id: "servicios", label: "Servicios", icon: Tag },
 ];
 
 const STATUS_FILTERS = [
@@ -29,6 +49,7 @@ const STATUS_FILTERS = [
 
 export default function App() {
   const [orders, setOrders] = useState(() => getOrders());
+  const [services, setServices] = useState(() => getServices());
   const [viewMode, setViewMode] = useState(() => {
     try {
       const path = (window.location.pathname || "").toLowerCase();
@@ -75,6 +96,9 @@ export default function App() {
       syncWithSupabase().then((remote) => {
         if (remote) setOrders(remote);
       }).catch(console.error);
+      syncServicesWithSupabase().then((remoteServices) => {
+        if (remoteServices) setServices(remoteServices);
+      }).catch(console.error);
     }
 
     const handleStorageChange = (e) => {
@@ -85,10 +109,21 @@ export default function App() {
       }
     };
 
+    const handleServicesChange = (e) => {
+      if (e.detail) {
+        setServices(e.detail);
+      } else {
+        setServices(getServices());
+      }
+    };
+
     const handleConfigChange = () => {
       if (isSupabaseConfigured()) {
         syncWithSupabase().then((remote) => {
           if (remote) setOrders(remote);
+        }).catch(console.error);
+        syncServicesWithSupabase().then((remoteServices) => {
+          if (remoteServices) setServices(remoteServices);
         }).catch(console.error);
       }
     };
@@ -111,12 +146,17 @@ export default function App() {
     window.addEventListener("hashchange", handleNavigationChange);
     window.addEventListener("popstate", handleNavigationChange);
     window.addEventListener("ridelab_data_changed", handleStorageChange);
+    window.addEventListener("ridelab_services_changed", handleServicesChange);
     window.addEventListener("ridelab_supabase_config_changed", handleConfigChange);
 
     let unsubscribe = () => {};
+    let unsubscribeServices = () => {};
     if (isSupabaseConfigured()) {
       unsubscribe = subscribeToOrdersRealtime(() => {
         syncWithSupabase();
+      });
+      unsubscribeServices = subscribeToServicesRealtime(() => {
+        syncServicesWithSupabase();
       });
     }
 
@@ -124,11 +164,13 @@ export default function App() {
       window.removeEventListener("hashchange", handleNavigationChange);
       window.removeEventListener("popstate", handleNavigationChange);
       window.removeEventListener("ridelab_data_changed", handleStorageChange);
+      window.removeEventListener("ridelab_services_changed", handleServicesChange);
       window.removeEventListener("ridelab_supabase_config_changed", handleConfigChange);
       if (authSub && typeof authSub.unsubscribe === "function") {
         authSub.unsubscribe();
       }
       unsubscribe();
+      unsubscribeServices();
     };
   }, []);
 
@@ -268,6 +310,7 @@ export default function App() {
         <WorkshopPublicPage
           onOpenIntranet={handleOpenIntranet}
           onBookingSubmitted={handleBookingSubmitted}
+          services={services}
         />
         <LoginModal
           isOpen={true}
@@ -288,6 +331,7 @@ export default function App() {
         <WorkshopPublicPage
           onOpenIntranet={handleOpenIntranet}
           onBookingSubmitted={handleBookingSubmitted}
+          services={services}
         />
         <LoginModal
           isOpen={isLoginModalOpen}
@@ -445,13 +489,22 @@ export default function App() {
             setSearchQuery={setSearchQuery}
           />
         )}
+
+        {currentTab === "servicios" && (
+          <ServicesManagerView
+            services={services}
+            onAddService={addService}
+            onUpdateService={updateService}
+            onDeleteService={deleteService}
+          />
+        )}
       </main>
 
       <nav
         aria-label="Navegación de la aplicación"
         className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200/80 bg-white shadow-[0_-4px_16px_-12px_rgba(28,27,24,0.25)] lg:hidden"
       >
-        <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-0.5 px-2 pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto grid w-full max-w-md grid-cols-5 gap-0.5 px-1.5 pb-[env(safe-area-inset-bottom)]">
           {TAB_ITEMS.map((tab) => {
             const Icon = tab.icon;
             const isActive = currentTab === tab.id;
@@ -504,6 +557,7 @@ export default function App() {
         onSave={handleSaveOrder}
         editingOrder={editingOrder}
         existingOrders={orders}
+        services={services}
       />
 
       <DetailModal

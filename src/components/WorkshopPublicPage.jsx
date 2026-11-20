@@ -6,8 +6,8 @@ import {
   Lock,
   Send,
 } from "lucide-react";
-import { QUICK_SERVICES } from "../data/serviceCatalog";
-import { getLocalDateISO } from "../services/storage";
+import { INITIAL_SERVICES } from "../data/serviceCatalog";
+import { formatCLP, getLocalDateISO } from "../services/storage";
 import confetti from "canvas-confetti";
 
 const InstagramIcon = ({ className = "w-4 h-4" }) => (
@@ -26,14 +26,24 @@ const HERO_GALLERY_IMAGES = [
   { src: "./hero-gallery/05-ruedas.jpg", alt: "Centrado de rueda MTB en banco de precisión" },
 ];
 
-export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted }) {
+export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted, services = [] }) {
+  const activeServices = (services.length > 0 ? services : INITIAL_SERVICES)
+    .filter((s) => s.active !== false)
+    .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+
+  const landingServices = activeServices.filter((s) => s.showInLanding);
+  const bookingServices = activeServices.filter((s) => s.showInBooking !== false);
+  const defaultBookingOption = bookingServices[0]
+    ? `${bookingServices[0].name} (${formatCLP(bookingServices[0].price)})`
+    : "Mantención Completa MTB ($55.000)";
+
   const [booking, setBooking] = useState(() => ({
     clientName: "",
     clientPhone: "",
     bikeBrand: "",
     bikeModel: "",
     bikeType: "mtb",
-    serviceDescription: "Mantención completa MTB ($55.000)",
+    serviceDescription: defaultBookingOption,
     notes: "",
     date: getLocalDateISO(new Date(Date.now() + 24 * 60 * 60 * 1000)),
   }));
@@ -48,11 +58,11 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted 
       return;
     }
 
-    // Determine estimated price
-    const matchedService = QUICK_SERVICES.find((s) =>
-      booking.serviceDescription.includes(s.description)
+    // Determine estimated price from dynamic services catalog
+    const matchedService = activeServices.find((s) =>
+      booking.serviceDescription.toLowerCase().includes((s.name || "").toLowerCase())
     );
-    const estimatedPrice = matchedService ? matchedService.price : 50000;
+    const estimatedPrice = matchedService ? Number(matchedService.price) || 0 : 50000;
 
     const newOrder = {
       clientName: booking.clientName.trim(),
@@ -232,55 +242,32 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted 
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {[
-              {
-                title: "Mantención Completa MTB",
-                price: "$55.000",
-                desc: "Desarme, limpieza ultrasónica, lubricación de pivotes, engrase general, regulación de cambios y torques.",
-              },
-              {
-                title: "Mantención E-Bike Eléctrica",
-                price: "$60.000",
-                desc: "Servicio mecánico completo adaptado a bicicletas eléctricas, revisión de cableados, motor y batería.",
-              },
-              {
-                title: "Servicio de Frenos & Purgado",
-                price: "$20.000",
-                desc: "Purgado con aceite mineral / DOT, eliminación de aire, limpieza de pistones y cambio de pastillas.",
-              },
-              {
-                title: "Armado de Ruedas & Enrayado",
-                price: "$25.000",
-                desc: "Enrayado desde cero o centrado fino con tensiómetro de rayos de alta precisión.",
-              },
-              {
-                title: "Conversión Tubeless & Sellado",
-                price: "Desde $14.000",
-                desc: "Instalación de cintas especiales, válvulas de aluminio con color y recarga de líquido sellante.",
-              },
-              {
-                title: "Rodamientos de Maza & Motor",
-                price: "Desde $20.000",
-                desc: "Extracción e instalación de rodamientos sellados de precisión para mazas y caja de pedalier.",
-              },
-            ].map((s, idx) => (
-              <div
-                key={idx}
-                className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:border-amber-300 transition flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-bold text-slate-900 text-sm">{s.title}</h3>
-                    <span className="text-xs font-mono font-extrabold text-amber-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex-shrink-0">
-                      {s.price}
-                    </span>
+          {landingServices.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {landingServices.map((s) => (
+                <div
+                  key={s.id || s.code || s.name}
+                  className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:border-amber-300 transition flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-bold text-slate-900 text-sm">{s.name}</h3>
+                      <span className="text-xs font-mono font-extrabold text-amber-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex-shrink-0">
+                        {s.priceLabel ? s.priceLabel : formatCLP(s.price)}
+                      </span>
+                    </div>
+                    {s.description ? (
+                      <p className="text-xs text-slate-500 mt-2 leading-relaxed">{s.description}</p>
+                    ) : null}
                   </div>
-                  <p className="text-xs text-slate-500 mt-2 leading-relaxed">{s.desc}</p>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500">
+              Consulta por nuestros servicios disponibles en el formulario de agendamiento.
+            </div>
+          )}
         </section>
 
         {/* Booking Form Section */}
@@ -332,7 +319,7 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted 
                         bikeBrand: "",
                         bikeModel: "",
                         bikeType: "mtb",
-                        serviceDescription: "Mantención completa MTB ($55.000)",
+                        serviceDescription: defaultBookingOption,
                         notes: "",
                         date: getLocalDateISO(new Date(Date.now() + 24 * 60 * 60 * 1000)),
                       });
@@ -411,12 +398,14 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted 
                     onChange={(e) => setBooking({ ...booking, serviceDescription: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium"
                   >
-                    <option value="Mantención completa MTB ($55.000)">Mantención completa MTB ($55.000)</option>
-                    <option value="Mantención completa E-Bike ($60.000)">Mantención completa E-Bike ($60.000)</option>
-                    <option value="Servicio de Frenos & Purgado ($20.000)">Servicio de Frenos & Purgado ($20.000)</option>
-                    <option value="Armado / Enrayado de Ruedas ($25.000)">Armado / Enrayado de Ruedas ($25.000)</option>
-                    <option value="Conversión Tubeless & Líquido">Conversión Tubeless & Líquido</option>
-                    <option value="Revisión General / Ajuste de Cambios">Revisión General / Ajuste de Cambios</option>
+                    {bookingServices.map((s) => {
+                      const label = `${s.name} (${s.priceLabel ? s.priceLabel : formatCLP(s.price)})`;
+                      return (
+                        <option key={s.id || s.code || s.name} value={label}>
+                          {label}
+                        </option>
+                      );
+                    })}
                     <option value="Otro servicio personalizado">Otro servicio personalizado</option>
                   </select>
                 </div>

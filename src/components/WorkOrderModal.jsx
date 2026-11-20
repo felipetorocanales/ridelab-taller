@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Bike, Wrench, Check, Calendar, Sparkles } from "lucide-react";
 import Modal from "./ui/Modal";
-import { QUICK_SERVICES, BIKE_TYPES, ORDER_STATUSES } from "../data/serviceCatalog";
+import { INITIAL_SERVICES, BIKE_TYPES, ORDER_STATUSES } from "../data/serviceCatalog";
 import { formatCLP, getLocalDateISO } from "../services/storage";
 
 const emptyForm = (todayStr, defaultDelivery) => ({
@@ -26,11 +26,29 @@ const createDefaultForm = () => {
   return emptyForm(getLocalDateISO(today), getLocalDateISO(delivery));
 };
 
-export default function WorkOrderModal({ isOpen, onClose, onSave, editingOrder, existingOrders = [] }) {
+export default function WorkOrderModal({
+  isOpen,
+  onClose,
+  onSave,
+  editingOrder,
+  existingOrders = [],
+  services = [],
+}) {
   const [formData, setFormData] = useState(createDefaultForm);
   const [customItemDesc, setCustomItemDesc] = useState("");
   const [customItemPrice, setCustomItemPrice] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const activeSourceServices = services.length > 0 ? services : INITIAL_SERVICES;
+  const quickServices = activeSourceServices
+    .filter((s) => s.active !== false && s.showInQuickAdd !== false)
+    .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
+    .map((s) => ({
+      id: s.id,
+      description: s.name,
+      price: Number(s.price) || 0,
+      category: s.category,
+    }));
 
   const clientSuggestions = Array.from(
     new Set(existingOrders.map((order) => order.clientName).filter(Boolean))
@@ -325,10 +343,10 @@ export default function WorkOrderModal({ isOpen, onClose, onSave, editingOrder, 
               Agregar con un toque
             </p>
             <div className="no-scrollbar flex gap-1.5 overflow-x-auto rounded-xl border border-stone-200 bg-stone-50/70 p-1.5">
-              {QUICK_SERVICES.map((service) => (
+              {quickServices.map((service) => (
                 <button
                   type="button"
-                  key={service.description}
+                  key={service.id || service.description}
                   onClick={() => handleAddQuickService(service)}
                   className="shrink-0 whitespace-nowrap rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-stone-700 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900 active:scale-[0.97]"
                 >
