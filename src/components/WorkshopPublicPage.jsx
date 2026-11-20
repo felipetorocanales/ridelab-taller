@@ -18,6 +18,14 @@ const InstagramIcon = ({ className = "w-4 h-4" }) => (
   </svg>
 );
 
+const HERO_GALLERY_IMAGES = [
+  { src: "./hero-gallery/01-taller.jpg", alt: "Mecánico trabajando en bicicleta MTB en taller" },
+  { src: "./hero-gallery/02-enduro.jpg", alt: "Rider de enduro MTB en sendero" },
+  { src: "./hero-gallery/03-suspension.jpg", alt: "Ajuste con torquímetro en horquilla y freno de disco" },
+  { src: "./hero-gallery/04-downhill.jpg", alt: "Bicicleta de downhill con suspensión trasera" },
+  { src: "./hero-gallery/05-ruedas.jpg", alt: "Centrado de rueda MTB en banco de precisión" },
+];
+
 export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted }) {
   const [booking, setBooking] = useState(() => ({
     clientName: "",
@@ -146,19 +154,46 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted 
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-b from-white via-sand-50/50 to-slate-50 py-12 sm:py-16 border-b border-slate-200">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold mb-4">
+      <section className="relative overflow-hidden bg-white py-12 sm:py-16 border-b border-slate-200">
+        {/* Horizontal scrolling background gallery */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 select-none overflow-hidden"
+        >
+          <div className="flex h-full w-max items-stretch gap-3 sm:gap-4 animate-hero-marquee">
+            {[...HERO_GALLERY_IMAGES, ...HERO_GALLERY_IMAGES].map((img, idx) => (
+              <div
+                key={`${img.src}-${idx}`}
+                className="relative h-full w-64 sm:w-80 md:w-96 flex-shrink-0 overflow-hidden"
+              >
+                <img
+                  src={img.src}
+                  alt=""
+                  loading={idx < 4 ? "eager" : "lazy"}
+                  decoding="async"
+                  className="h-full w-full object-cover opacity-40 sm:opacity-45 scale-105"
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Readability gradient overlays */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/85 via-sand-50/75 to-slate-50/90" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white/75 via-white/30 to-white/75" />
+        </div>
+
+        <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50/95 backdrop-blur-sm border border-amber-200 text-amber-900 text-xs font-semibold mb-4 shadow-sm">
             <Wrench className="w-3.5 h-3.5 text-amber-600" />
             <span>Siempre apoyando al Rider en sus aventuras ⛰️🔧</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">
+          <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)]">
             Servicio Técnico MTB &{" "}
             <span className="text-amber-800">Mecánica Especializada</span>
           </h1>
 
-          <p className="mt-3 text-sm sm:text-base text-slate-600 max-w-xl mx-auto leading-relaxed">
+          <p className="mt-3 text-sm sm:text-base text-slate-700 font-medium max-w-xl mx-auto leading-relaxed">
             Mantenciones completas, purgado de frenos, armado de ruedas y tubeless para Enduro, Downhill, Trail, E-Bikes y Gravel.
           </p>
 
@@ -175,7 +210,7 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted 
               href="https://www.instagram.com/ridelab.taller"
               target="_blank"
               rel="noreferrer"
-              className="px-5 py-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2"
+              className="px-5 py-3 bg-white/95 hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold shadow-sm transition flex items-center gap-2 backdrop-blur-sm"
             >
               <InstagramIcon className="w-4 h-4 text-amber-600" />
               Ver Trabajos en Instagram

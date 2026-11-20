@@ -96,6 +96,15 @@ textarea:focus-visible,
   }
 }
 
+@keyframes hero-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
 .animate-fade-in {
   animation: modal-fade-in 160ms ease-out both;
 }
@@ -104,9 +113,15 @@ textarea:focus-visible,
   animation: modal-slide-up 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
+.animate-hero-marquee {
+  animation: hero-marquee 45s linear infinite;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
-  .animate-sheet-in {
+  .animate-sheet-in,
+  .animate-hero-marquee {
     animation: none;
   }
 
