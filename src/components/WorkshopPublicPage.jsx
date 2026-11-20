@@ -51,7 +51,7 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted,
   const [submitted, setSubmitted] = useState(false);
   const [bookingCode, setBookingCode] = useState("");
 
-  const handleBookingSubmit = (e) => {
+  const handleBookingSubmit = async (e) => {
     e.preventDefault();
     if (!booking.clientName.trim() || !booking.bikeModel.trim()) {
       alert("Por favor completa tu nombre y el modelo de tu bicicleta.");
@@ -90,7 +90,7 @@ export default function WorkshopPublicPage({ onOpenIntranet, onBookingSubmitted,
     };
 
     if (onBookingSubmitted) {
-      const saved = onBookingSubmitted(newOrder);
+      const saved = await onBookingSubmitted(newOrder);
       setBookingCode(saved?.code || "RL-" + Math.floor(1000 + Math.random() * 9000));
     }
 

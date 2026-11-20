@@ -294,8 +294,8 @@ export default function App() {
     window.location.hash = "";
   };
 
-  const handleBookingSubmitted = (newBookingOrder) => {
-    const saved = addOrder(newBookingOrder);
+  const handleBookingSubmitted = async (newBookingOrder) => {
+    const saved = await addOrder(newBookingOrder);
     setOrders(getOrders());
     return saved;
   };

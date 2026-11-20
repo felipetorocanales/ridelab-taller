@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import Modal from "./ui/Modal";
 import { SERVICE_CATEGORIES } from "../data/serviceCatalog";
-import { formatCLP } from "../services/storage";
+import { formatCLP, getNextServiceNumber } from "../services/storage";
 
 const createEmptyServiceForm = (nextOrder = 1) => ({
   code: `SRV-${String(nextOrder).padStart(3, "0")}`,
@@ -42,7 +42,7 @@ export default function ServicesManagerView({
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
-  const [formData, setFormData] = useState(() => createEmptyServiceForm(services.length + 1));
+  const [formData, setFormData] = useState(() => createEmptyServiceForm(getNextServiceNumber(services)));
 
   const sortedServices = useMemo(() => {
     return [...services].sort((a, b) => {
@@ -76,7 +76,7 @@ export default function ServicesManagerView({
 
   const handleOpenNew = () => {
     setEditingService(null);
-    setFormData(createEmptyServiceForm(services.length + 1));
+    setFormData(createEmptyServiceForm(getNextServiceNumber(services)));
     setIsModalOpen(true);
   };
 

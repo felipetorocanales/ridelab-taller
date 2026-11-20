@@ -39,9 +39,18 @@ export const saveOrders = (orders) => {
   }
 };
 
+export const getNextOrderNumber = (orders = []) => {
+  const maxNumber = orders.reduce((max, item) => {
+    const match = String(item?.code || item?.id || "").match(/RL-(\d+)/i);
+    const num = match ? parseInt(match[1], 10) : 0;
+    return Number.isFinite(num) && num > max ? num : max;
+  }, 1000);
+  return maxNumber + 1;
+};
+
 export const addOrder = async (newOrder) => {
   const current = getOrders();
-  const nextNumber = current.length + 1001;
+  const nextNumber = getNextOrderNumber(current);
   const orderWithCode = {
     ...newOrder,
     id: newOrder.id || `RL-${nextNumber}`,
@@ -231,9 +240,18 @@ export const saveServices = (services) => {
   }
 };
 
+export const getNextServiceNumber = (services = []) => {
+  const maxNumber = services.reduce((max, item) => {
+    const match = String(item?.code || "").match(/SRV-(\d+)/i);
+    const num = match ? parseInt(match[1], 10) : 0;
+    return Number.isFinite(num) && num > max ? num : max;
+  }, 0);
+  return maxNumber + 1;
+};
+
 export const addService = async (newService) => {
   const current = getServices();
-  const nextNumber = current.length + 1;
+  const nextNumber = getNextServiceNumber(current);
   const padded = String(nextNumber).padStart(3, "0");
   const serviceToSave = {
     ...newService,
